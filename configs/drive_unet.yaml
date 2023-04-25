@@ -1,0 +1,25 @@
+model:
+    target: segment.modules.unet.UNet
+    params:
+        image_key: image
+        in_channels: 3
+        num_classes: 2
+        bilinear: True
+        base_c: 64
+        loss:
+            target: segment.losses.segmentation.BCELoss
+
+dataset:
+    target: segment.dataloader.DataModuleFromConfig
+    params:
+        batch_size: 2
+        num_workers: 0
+        train:
+            target: segment.dataloader.drive.DRIVESegTrain
+            params:
+                size: 32
+
+        validation:
+            target: segment.dataloader.drive.DRIVESegEval
+            params:
+                size: 32
