@@ -20,11 +20,12 @@ if __name__ == '__main__':
     parser.add_argument('-nn', '--num_nodes', type=int, default=1)
     parser.add_argument('-ng', '--num_gpus', type=int, default=1)
     parser.add_argument('-u', '--update_every', type=int, default=1)
-    parser.add_argument('-e', '--epochs', type=int, default=5)
-    parser.add_argument('-lr', '--base_lr', type=float, default=4.5e-6)
+    parser.add_argument('-e', '--epochs', type=int, default=300)
+    parser.add_argument('-lr', '--base_lr', type=float, default=0.01)
     parser.add_argument('-a', '--use_amp', default=False, action='store_true')
-    parser.add_argument('-b', '--batch_frequency', type=int, default=750)
-    parser.add_argument('-m', '--max_images', type=int, default=4)
+    parser.add_argument('-b', '--batch_frequency', type=int, default=10000)
+    parser.add_argument('-m', '--max_images', type=int, default=1)
+    parser.add_argument('--limit_val_batches', type=int, default=1)
     args = parser.parse_args()
 
     # Set random seed

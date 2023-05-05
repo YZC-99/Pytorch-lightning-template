@@ -5,26 +5,17 @@
 
 import torch.nn as nn
 import torch.nn.functional as F
+import torch
+from .dice_loss import *
+from .dice_coefficient_loss import dice_loss, build_target
 
 
-class BCELoss(nn.Module):
-    def forward(self, prediction, target):
-        loss = F.binary_cross_entropy_with_logits(prediction,target)
-        return loss
-
-
-class BCELossWithQuant(nn.Module):
-    def __init__(self, codebook_weight=1.):
-        super().__init__()
-        self.codebook_weight = codebook_weight
-
-    def forward(self, qloss, target, prediction, split):
-        bce_loss = F.binary_cross_entropy_with_logits(prediction,target)
-        loss = bce_loss + self.codebook_weight*qloss
-
-        log = {"{}/total_loss".format(split): loss.clone().detach().mean(),
-               "{}/bce_loss".format(split): bce_loss.detach().mean(),
-               "{}/quant_loss".format(split): qloss.detach().mean()
-               }
-
-        return loss, log 
+class CE_DiceLoss(nn.Module):
+    def __init__(self):
+        super(CE_DiceLoss, self).__init__()
+    def forward(self,input, target):
+        loss_weight = torch.as_tensor([1.0, 2.0], device='cuda:0')
+        ce_loss = nn.functional.cross_entropy(input,target.long(),weight=loss_weight)
+        dice_target = build_target(target.long(), num_classes=2)
+        dc_loss = dice_loss(input, dice_target, multiclass=True)
+        return ce_loss + dc_loss

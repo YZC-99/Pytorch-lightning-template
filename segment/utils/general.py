@@ -54,9 +54,9 @@ def setup_callbacks(exp_config: OmegaConf, config: OmegaConf) -> Tuple[List[Call
         save_last=True,
         verbose=False,
     )
-    os.makedirs(setup_callback.logdir/'tb', exist_ok=True)
-    # logger = TensorBoardLogger(save_dir=str(setup_callback.logdir/'tb'), name=exp_config.name+"_"+str(now))
-    logger = TensorBoardLogger(save_dir=str(setup_callback.logdir/'tb'))
+    os.makedirs(setup_callback.logdir, exist_ok=True)
+    logger = TensorBoardLogger(save_dir=str(setup_callback.logdir))
+    # csv_logger = CSVLogger(str(setup_callback.logdir), 'results.csv')
     logger_img_callback = ImageLogger(exp_config.batch_frequency, exp_config.max_images)
     return [setup_callback, checkpoint_callback, logger_img_callback], logger
 

@@ -2,7 +2,8 @@
 # Modified from Taming Transformers (https://github.com/CompVis/taming-transformers)
 # Copyright (c) 2020 Patrick Esser and Robin Rombach and Björn Ommer. All Rights Reserved.
 # ------------------------------------------------------------------------------------
-
+from datetime import datetime
+import pandas as pd
 import os
 import wandb
 import numpy as np
@@ -154,3 +155,30 @@ class ImageLogger(Callback):
                                 outputs: Generic, batch: Tuple[torch.LongTensor, torch.FloatTensor],
                                 dataloader_idx: int, batch_idx: int) -> None:
         self.log_img(pl_module, batch, batch_idx, split="val")
+
+class CSVLogger(Callback):
+    def __init__(self, logdir, filename):
+        super().__init__()
+        self.logdir = logdir
+        self.filename = filename
+        self.df = pd.DataFrame(columns=['lr-Adam', 'created_at', 'train_loss_step', 'epoch', 'val_loss', 'val_acc', 'val_precision', 'val_recall', 'val_f1_score', 'val_auc', 'train_loss_epoch'])
+        self.counter = 0
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        lr = trainer.optimizers[0].param_groups[0]['lr']
+        loss = trainer.callback_metrics['val_loss']
+        acc = trainer.callback_metrics['val_acc']
+        precision = trainer.callback_metrics['val_precision']
+        recall = trainer.callback_metrics['val_recall']
+        f1_score = trainer.callback_metrics['val_f1_score']
+        auc = trainer.callback_metrics['val_auc']
+        epoch = pl_module.current_epoch
+        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        step = self.counter + 1
+        train_loss_epoch = trainer.callback_metrics['train_loss_epoch']
+        self.df.loc[step] = [lr, now, step, epoch, loss, acc, precision, recall, f1_score, auc, train_loss_epoch]
+        self.counter += 1
+
+    def on_train_end(self, trainer, pl_module):
+        filename = os.path.join(self.logdir, self.filename)
+        self.df.to_csv(filename, index=False)

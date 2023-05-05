@@ -6,7 +6,7 @@ import glob
 import random
 from PIL import Image
 from torch.utils.data import Dataset
-
+from . import transforms as T
 
 def preprocess_mask(img):
     mask = np.zeros_like(img)
@@ -14,11 +14,12 @@ def preprocess_mask(img):
     return mask
 
 
+
 class SegmentationBase(Dataset):
     def __init__(self,
                  data_csv, data_root, segmentation_root,
-                 size=None, random_crop=False, interpolation="bicubic",
-                 n_labels=2, shift_segmentation=False,
+                 size=None, interpolation="bicubic",
+                 n_labels=2, shift_segmentation=False, train=True
                  ):
         self.n_labels = n_labels
         self.shift_segmentation = shift_segmentation
@@ -32,30 +33,34 @@ class SegmentationBase(Dataset):
             "relative_file_path_": [l for l in self.image_paths],
             "file_path_": [os.path.join(self.data_root, l)
                            for l in self.image_paths],
-            "segmentation_path_": [os.path.join(self.segmentation_root, l).replace("tif","gif")
+            "segmentation_path_": [os.path.join(self.segmentation_root, l).replace("tif", "gif")
                                    for l in self.image_paths]
         }
-
-        size = None if size is not None and size<=0 else size
+        self.train = train
         self.size = size
-        if self.size is not None:
-            self.interpolation = interpolation
-            self.interpolation = {
-                "nearest": cv2.INTER_NEAREST,
-                "bilinear": cv2.INTER_LINEAR,
-                "bicubic": cv2.INTER_CUBIC,
-                "area": cv2.INTER_AREA,
-                "lanczos": cv2.INTER_LANCZOS4}[self.interpolation]
-            self.image_rescaler = albumentations.SmallestMaxSize(max_size=self.size,
-                                                                 interpolation=self.interpolation)
-            self.segmentation_rescaler = albumentations.SmallestMaxSize(max_size=self.size,
-                                                                        interpolation=cv2.INTER_NEAREST)
-            self.center_crop = not random_crop
-            if self.center_crop:
-                self.cropper = albumentations.CenterCrop(height=self.size, width=self.size)
-            else:
-                self.cropper = albumentations.RandomCrop(height=self.size, width=self.size)
-            self.preprocessor = self.cropper
+
+        # ==================
+        base_size = 565
+        crop_size = 256
+        min_size = int(0.5 * base_size)
+        max_size = int(1.2 * base_size)
+        mean = (0.485, 0.456, 0.406)
+        std = (0.229, 0.224, 0.225)
+        # ==================
+        if self.train:
+            self.transforms = T.Compose([
+                                        # T.RandomResize(min_size, max_size),
+                                        # T.RandomHorizontalFlip(0.5),
+                                        # T.RandomVerticalFlip(0.5),
+                                        T.RandomCrop(crop_size),
+                                        T.ToTensor(),
+                                        T.Normalize(mean=mean, std=std),
+            ])
+        else:
+            self.transforms = T.Compose([T.ToTensor(),
+                                         T.Normalize(mean=mean, std=std),
+        ])
+
 
     def __len__(self):
         return self._length
@@ -65,56 +70,36 @@ class SegmentationBase(Dataset):
         image = Image.open(example["file_path_"])
         if not image.mode == "RGB":
             image = image.convert("RGB")
-        image = np.array(image).astype(np.uint8)
-        if self.size is not None:
-            image = self.image_rescaler(image=image)["image"]
         segmentation = Image.open(example["segmentation_path_"])
         if not segmentation.mode == "L":
             segmentation = segmentation.convert("L")
         assert segmentation.mode == "L", segmentation.mode
         segmentation = np.array(segmentation).astype(np.uint8)
-
         # Preprocess
         segmentation = preprocess_mask(segmentation)
+        segmentation = Image.fromarray(segmentation)
 
-        if self.shift_segmentation:
-            # used to support segmentations containing unlabeled==255 label
-            segmentation = segmentation+1
-        if self.size is not None:
-            segmentation = self.segmentation_rescaler(image=segmentation)["image"]
-        if self.size is not None:
-            processed = self.preprocessor(image=image,
-                                          mask=segmentation
-                                          )
-        else:
-            processed = {"image": image,
-                         "mask": segmentation
-                         }
-
-        example["image"] = (processed["image"]/127.5 - 1.0).astype(np.float32)
-        example["image"] = np.transpose(example["image"],(2, 0, 1))
-
-        segmentation = processed["mask"]
-        onehot = np.eye(self.n_labels)[segmentation]
-        example["label"] = np.transpose(onehot,(2, 0, 1))
+        img, mask = self.transforms(image, segmentation)
+        example["image"] = img
+        example["label"] = mask
         return example
 
 
 class DRIVESegTrain(SegmentationBase):
-    def __init__(self, size=None, random_crop=False, interpolation="bicubic"):
+    def __init__(self, size=None, train=True, interpolation="bicubic"):
         super().__init__(data_csv='data/DRIVE/drive_train.txt',
                          data_root='data/DRIVE/images',
                          segmentation_root='data/DRIVE/masks',
-                         size=size, random_crop=random_crop, interpolation=interpolation,
+                         size=size, interpolation=interpolation, train=train,
                          n_labels=2)
 
 
 class DRIVESegEval(SegmentationBase):
-    def __init__(self, size=None, random_crop=False, interpolation="bicubic"):
+    def __init__(self, size=None, train=False, interpolation="bicubic"):
         super().__init__(data_csv='data/DRIVE/drive_eval.txt',
                          data_root='data/DRIVE/images',
                          segmentation_root='data/DRIVE/masks',
-                         size=size, random_crop=random_crop, interpolation=interpolation,
+                         size=size, interpolation=interpolation, train=train,
                          n_labels=2)
 
 

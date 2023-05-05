@@ -7,6 +7,7 @@ from omegaconf import OmegaConf
 from segment.utils.general import initialize_from_config
 from torch.optim import lr_scheduler
 import pytorch_lightning as pl
+from torchmetrics import JaccardIndex,Dice
 
 class DoubleConv(nn.Sequential):
     def __init__(self, in_channels, out_channels, mid_channels=None):
@@ -69,15 +70,15 @@ class UNet(pl.LightningModule):
                  num_classes: int,
                  bilinear: bool,
                  base_c: int,
+                 weight_decay: float,
                  loss: OmegaConf,
                  scheduler: Optional[OmegaConf] = None,
                  ):
         super(UNet, self).__init__()
+        self.weight_decay = weight_decay
         self.image_key = image_key
         self.loss = initialize_from_config(loss)
         self.scheduler = scheduler
-
-
         self.in_channels = in_channels
         self.num_classes = num_classes
         self.bilinear = bilinear
@@ -152,7 +153,7 @@ class UNet(pl.LightningModule):
         logits = self(x)
 
         loss = self.loss(logits, y)
-
+        self.log("train/lr", self.optimizers().param_groups[0]['lr'], prog_bar=True, logger=True, on_epoch=True)
         self.log("train/total_loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
         return loss
 
@@ -160,43 +161,80 @@ class UNet(pl.LightningModule):
         x = self.get_input(batch, self.image_key)
         y = batch['label']
         logits = self(x)
+        preds = nn.functional.softmax(logits).argmax(1)
+
+        jaccard = JaccardIndex(num_classes=2,task='binary')
+        jaccard = jaccard.to(self.device)
+        iou = jaccard(preds,y)
+
+        dice = Dice(num_classes=2,average='macro')
+        dice = dice.to(self.device)
+        dice_score = dice(preds,y)
+
         loss = self.loss(logits, y)
         self.log("val/loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
+        self.log("val/iou", iou, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
+        self.log("val/dice_score", dice_score, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
         return loss
+
 
     def configure_optimizers(self) -> Tuple[List, List]:
         lr = self.learning_rate
-        optim_groups = list(self.in_conv.parameters()) + \
-                       list(self.down1.parameters()) + \
-                       list(self.down2.parameters()) + \
-                       list(self.down3.parameters()) + \
-                       list(self.down4.parameters()) + \
-                       list(self.up1.parameters()) + \
-                       list(self.up2.parameters()) + \
-                       list(self.up3.parameters()) + \
-                       list(self.up4.parameters()) + \
-                       list(self.out_conv.parameters())
 
-        optimizers = [torch.optim.AdamW(optim_groups, lr=lr, betas=(0.9, 0.99), weight_decay=1e-4)]
-        schedulers = []
+        # optimizers = [torch.optim.AdamW(optim_groups, lr=lr, betas=(0.9, 0.99), weight_decay=1e-4)]
+        optimizers = [torch.optim.Adam(self.parameters(), lr=lr, betas=(0.9, 0.99), weight_decay=self.weight_decay)]
+        # optimizers = [torch.optim.SGD(self.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)]
 
-        if self.scheduler is not None:
-            self.scheduler.params.start = lr
-            scheduler = initialize_from_config(self.scheduler)
+        warmup = True
+        warmup_epochs = 1
+        num_step = 9
+        warmup_factor = 1e-3
+        epochs = self.trainer.max_epochs
+        lr_decay_rate = 0.8
 
-            schedulers = [
-                {
-                    'scheduler': lr_scheduler.LambdaLR(optimizer, lr_lambda=scheduler.schedule),
-                    'interval': 'step',
-                    'frequency': 1
-                } for optimizer in optimizers
-            ]
+        def f(x):
+            """
+             根据step数返回一个学习率倍率因子，
+             注意在训练开始之前，pytorch会提前调用一次lr_scheduler.step()方法
+             """
+            if warmup is True and x <= (warmup_epochs * num_step):
+                alpha = float(x) / (warmup_epochs * num_step)
+                # warmup过程中lr倍率因子从warmup_factor -> 1
+                return warmup_factor * (1 - alpha) + alpha
+            else:
+                # warmup后lr倍率因子从1 -> 0
+                # 参考deeplab_v2: Learning rate policy
+                return (1 - (x - warmup_epochs * num_step) / ((epochs - warmup_epochs) * num_step)) ** 0.9
+
+        def lr_scheduler_fn(epoch,lr):
+            if epoch < warmup_epochs:
+                return (epoch / warmup_epochs) * lr
+            else:
+                return lr * (lr_decay_rate ** (epoch - warmup_epochs))
+
+        schedulers = [
+            {
+                # 'scheduler': lr_scheduler.LambdaLR(optimizers[0],lr_lambda=lambda epoch: lr_scheduler_fn(epoch, lr)),
+                'scheduler': lr_scheduler.LambdaLR(optimizers[0],lr_lambda=f),
+                'interval': 'step',
+                'frequency': 1
+            }
+        ]
 
         return optimizers, schedulers
+
+
 
     def log_images(self, batch: Tuple[Any, Any], *args, **kwargs) -> Dict:
         log = dict()
         x = self.get_input(batch, self.image_key).to(self.device)
-        log["originals"] = x
-        log["predict"] = self(x)
+        y = batch['label']
+        # log["originals"] = x
+        out = self(x)
+        out = torch.nn.functional.softmax(out,dim=1)
+        predict = out.argmax(1)
+        log["label"] = y
+        log["predict"] = predict
         return log
+
+
