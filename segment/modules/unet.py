@@ -233,6 +233,7 @@ class UNet(pl.LightningModule):
         out = self(x)
         out = torch.nn.functional.softmax(out,dim=1)
         predict = out.argmax(1)
+        log["image"] = x
         log["label"] = y
         log["predict"] = predict
         return log

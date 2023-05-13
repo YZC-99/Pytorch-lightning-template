@@ -78,6 +78,14 @@ class RandomCrop(object):
         target = F.crop(target, *crop_params)
         return image, target
 
+class Resize(object):
+    def __init__(self, size):
+        self.size = size
+
+    def __call__(self, image, target):
+        image = F.resize(image, [self.size,self.size])
+        target = F.resize(target, [self.size,self.size])
+        return image, target
 
 class CenterCrop(object):
     def __init__(self, size):

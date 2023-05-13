@@ -1,0 +1,32 @@
+model:
+    target: segment.modules.unet.UNet
+    params:
+        image_key: image
+        in_channels: 3
+        num_classes: 2
+        bilinear: True
+        base_c: 64
+        weight_decay: 1e-4
+        loss:
+#            target: segment.losses.segmentation.CE_DiceLoss
+            target: segment.losses.dice_loss.DC_and_CE_loss
+
+
+
+
+dataset:
+    target: segment.dataloader.DataModuleFromConfig
+    params:
+        batch_size: 2
+        num_workers: 0
+        train:
+            target: segment.dataloader.idrid.IDRIDSegTrain
+            params:
+                size: 128
+                seg_object: 5. Optic Disc
+
+        validation:
+            target: segment.dataloader.idrid.IDRIDSegEval
+            params:
+                size: 128
+                seg_object: 5. Optic Disc

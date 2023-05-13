@@ -52,8 +52,27 @@ def HRF():
     print(f"mean: {mean}")
     print(f"std: {std}")
 
+def IDRID():
+    img_channels = 3
+    img_dir = "F:/DL-Data/eyes/IDRID/training/images"
+    assert os.path.exists(img_dir), f"image dir: '{img_dir}' does not exist."
+
+    img_name_list = [i for i in os.listdir(img_dir) if i.endswith(".jpg")]
+    cumulative_mean = np.zeros(img_channels)
+    cumulative_std = np.zeros(img_channels)
+    for img_name in img_name_list:
+        img_path = os.path.join(img_dir, img_name)
+        img = np.array(Image.open(img_path)) / 255.
+        cumulative_mean += img.mean(axis=(0,1))
+        cumulative_std += img.std(axis=(0,1))
+
+    mean = cumulative_mean / len(img_name_list)
+    std = cumulative_std / len(img_name_list)
+    print(f"mean: {mean}")
+    print(f"std: {std}")
+
 def main():
-    DRIVE()
+    IDRID()
     # HRF()
 
 
