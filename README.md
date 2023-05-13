@@ -35,3 +35,10 @@ python main.py -c drive_unet
 ```
 c代表当前的任务配置文件，该文件处于根目录下的congifs文件夹下，以yaml文件存储
 
+# 代码来源
+* WZMIAOMIAO / deep-learning-for-image-processing 
+* thuanz123 / enhancing-transformers 
+* JunMa11 / SegLoss 
+
+
+
