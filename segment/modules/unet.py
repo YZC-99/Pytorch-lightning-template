@@ -63,6 +63,42 @@ class OutConv(nn.Sequential):
         )
 
 
+class Encoder(pl.LightningModule):
+    def __init__(self,in_channels,base_c,bilinear=True):
+        super(Encoder,self).__init__()
+        factor = 2 if bilinear else 1
+        self.in_conv = DoubleConv(in_channels, base_c)
+        self.down1 = Down(base_c, base_c * 2)
+        self.down2 = Down(base_c * 2, base_c * 4)
+        self.down3 = Down(base_c * 4, base_c * 8)
+        self.down4 = Down(base_c * 8, base_c * 16 // factor)
+
+    def forward(self,x):
+        x1 = self.in_conv(x)
+        x2 = self.down1(x1)
+        x3 = self.down2(x2)
+        x4 = self.down3(x3)
+        x5 = self.down4(x4)
+
+        return {"x1":x1,"x2":x2,"x3":x3,"x4":x4,"x5":x5}
+
+class Decoder(pl.LightningModule):
+    def __init__(self,base_c,bilinear=True):
+        super(Decoder,self).__init__()
+        factor = 2 if bilinear else 1
+        self.up1 = Up(base_c * 16, base_c * 8 // factor, bilinear)
+        self.up2 = Up(base_c * 8, base_c * 4 // factor, bilinear)
+        self.up3 = Up(base_c * 4, base_c * 2 // factor, bilinear)
+        self.up4 = Up(base_c * 2, base_c, bilinear)
+
+
+    def forward(self,x_dict):
+        x = self.up1(x_dict['x5'],x_dict['x4'])
+        x = self.up2(x,x_dict['x3'])
+        x = self.up3(x,x_dict['x2'])
+        x = self.up4(x,x_dict['x1'])
+        return x
+
 class UNet(pl.LightningModule):
     def __init__(self,
                  image_key: str,
@@ -83,48 +119,14 @@ class UNet(pl.LightningModule):
         self.num_classes = num_classes
         self.bilinear = bilinear
 
-        self.in_conv = DoubleConv(in_channels, base_c)
-        self.down1 = Down(base_c, base_c * 2)
-        self.down2 = Down(base_c * 2, base_c * 4)
-        self.down3 = Down(base_c * 4, base_c * 8)
-        factor = 2 if bilinear else 1
-        self.down4 = Down(base_c * 8, base_c * 16 // factor)
-        self.up1 = Up(base_c * 16, base_c * 8 // factor, bilinear)
-        self.up2 = Up(base_c * 8, base_c * 4 // factor, bilinear)
-        self.up3 = Up(base_c * 4, base_c * 2 // factor, bilinear)
-        self.up4 = Up(base_c * 2, base_c, bilinear)
+        self.encoder = Encoder(in_channels,base_c,bilinear=True)
+        self.decoder = Decoder(base_c,bilinear=True)
         self.out_conv = OutConv(base_c, num_classes)
 
-        # self.Encoder = nn.Sequential(
-        #     # self.down1,
-        #     # self.down2,
-        #     # self.down3,
-        #     # self.down4,
-        # Down(base_c, base_c * 2),
-        # Down(base_c * 2, base_c * 4),
-        # Down(base_c * 4, base_c * 8),
-        # Down(base_c * 8, base_c * 16 // factor)
-        # )
-        # self.Decoder = nn.Sequential(
-        #     # self.up1,
-        #     # self.up2,
-        #     # self.up3,
-        #     # self.up4,
-        #     Up(base_c * 16, base_c * 8 // factor, bilinear),
-        #     Up(base_c * 8, base_c * 4 // factor, bilinear),
-        #     Up(base_c * 4, base_c * 2 // factor, bilinear),
-        #     Up(base_c * 2, base_c, bilinear),
-        # )
+
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        x1 = self.in_conv(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
-        x = self.up1(x5, x4)
-        x = self.up2(x, x3)
-        x = self.up3(x, x2)
-        x = self.up4(x, x1)
+        x_dict = self.encoder(x)
+        x = self.decoder(x_dict)
         logits = self.out_conv(x)
         return logits
 
@@ -151,7 +153,6 @@ class UNet(pl.LightningModule):
         x = self.get_input(batch, self.image_key)
         y = batch['label']
         logits = self(x)
-
         loss = self.loss(logits, y)
         self.log("train/lr", self.optimizers().param_groups[0]['lr'], prog_bar=True, logger=True, on_epoch=True)
         self.log("train/total_loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
@@ -162,7 +163,6 @@ class UNet(pl.LightningModule):
         y = batch['label']
         logits = self(x)
         preds = nn.functional.softmax(logits).argmax(1)
-
         jaccard = JaccardIndex(num_classes=2,task='binary')
         jaccard = jaccard.to(self.device)
         iou = jaccard(preds,y)
@@ -173,8 +173,8 @@ class UNet(pl.LightningModule):
 
         loss = self.loss(logits, y)
         self.log("val/loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
-        self.log("val/iou", iou, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
-        self.log("val/dice_score", dice_score, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
+        self.log("val/iou", iou, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("val/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
         return loss
 
 

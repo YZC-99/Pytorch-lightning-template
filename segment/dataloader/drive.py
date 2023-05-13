@@ -41,7 +41,7 @@ class SegmentationBase(Dataset):
 
         # ==================
         base_size = 565
-        crop_size = 256
+        crop_size = size
         min_size = int(0.5 * base_size)
         max_size = int(1.2 * base_size)
         mean = (0.485, 0.456, 0.406)
@@ -50,8 +50,8 @@ class SegmentationBase(Dataset):
         if self.train:
             self.transforms = T.Compose([
                                         # T.RandomResize(min_size, max_size),
-                                        # T.RandomHorizontalFlip(0.5),
-                                        # T.RandomVerticalFlip(0.5),
+                                        T.RandomHorizontalFlip(0.5),
+                                        T.RandomVerticalFlip(0.5),
                                         T.RandomCrop(crop_size),
                                         T.ToTensor(),
                                         T.Normalize(mean=mean, std=std),
