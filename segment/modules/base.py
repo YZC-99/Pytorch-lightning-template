@@ -1,10 +1,5 @@
-from typing import Dict
-from PIL import Image
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-
-from torchvision.transforms.functional import to_tensor
 from typing import List,Tuple, Dict, Any, Optional
 from omegaconf import OmegaConf
 from segment.utils.general import initialize_from_config
@@ -14,28 +9,8 @@ import pytorch_lightning as pl
 from torchmetrics import JaccardIndex,Dice
 from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_precision_score
 
-import torchvision.transforms as transforms
-import numpy as np
-import matplotlib.pyplot as plt
-import json
-from .nn import Unet_Encoder,Unet_Decoder,OutConv
 
-def color_code_labels(labels):
-    unique_labels = torch.unique(labels)
-    num_labels = len(unique_labels)
-    colormap = plt.cm.get_cmap('tab10')  # 使用tab10色彩映射，可根据需要选择其他映射
-    colors = colormap(np.linspace(0, 1, num_labels))
-
-    # 创建彩色编码的图像
-    color_image = torch.zeros((labels.shape[0], labels.shape[1], 3), dtype=torch.float32)
-    for i, label in enumerate(unique_labels):
-        color = torch.tensor(colors[i][:3], dtype=torch.float32)  # 取RGB通道的颜色值，并指定数据类型
-        mask = labels == label
-        color_image[mask[:, :, 0]] = color
-
-    return color_image
-
-class BaseUnet(pl.LightningModule):
+class BaseModel(pl.LightningModule):
     def __init__(self,
                  image_key: str,
                  in_channels: int,
@@ -44,7 +19,7 @@ class BaseUnet(pl.LightningModule):
                  loss: OmegaConf,
                  scheduler: Optional[OmegaConf] = None,
                  ):
-        super(BaseUnet, self).__init__()
+        super(BaseModel, self).__init__()
         self.weight_decay = weight_decay
         self.image_key = image_key
         self.loss = initialize_from_config(loss)
@@ -91,7 +66,7 @@ class BaseUnet(pl.LightningModule):
         x = self.get_input(batch, self.image_key)
         y = batch['label']
         logits = self(x)
-        preds = nn.functional.softmax(logits).argmax(1)
+        preds = nn.functional.softmax(logits, dim=1).argmax(1)
         y_true = y.cpu().numpy().flatten()
         y_pred = preds.cpu().numpy().flatten()
 
@@ -229,38 +204,3 @@ class BaseUnet(pl.LightningModule):
         log["label"] = y
         log["predict"] = predict
         return log
-
-
-class UNet(BaseUnet):
-    def __init__(self,
-                 image_key: str,
-                 in_channels: int,
-                 num_classes: int,
-                 bilinear: bool,
-                 base_c: int,
-                 weight_decay: float,
-                 loss: OmegaConf,
-                 scheduler: Optional[OmegaConf] = None,
-                 ):
-        super(UNet, self).__init__(
-                 image_key,
-                 in_channels,
-                 num_classes,
-                 weight_decay,
-                 loss,
-                 scheduler,)
-        self.base_c = base_c
-        self.bilinear = bilinear
-        self.encoder = Unet_Encoder(in_channels,self.base_c,bilinear=True)
-        self.decoder = Unet_Decoder(self.base_c,bilinear=True)
-        self.out_conv = OutConv(self.base_c, num_classes)
-
-
-    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        x_dict = self.encoder(x)
-        x = self.decoder(x_dict)
-        logits = self.out_conv(x)
-        return logits
-
-
-
