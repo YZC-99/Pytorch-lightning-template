@@ -21,7 +21,7 @@ class Res50_FCN(BaseModel):
                  weight_decay,
                  loss,
                  scheduler,)
-        self.backbone = seg.fcn_resnet50(pretrained=False)
+        self.backbone = seg.fcn_resnet50(pretrained=True)
         self.backbone.classifier[4] = torch.nn.Conv2d(
             in_channels = self.backbone.classifier[4].in_channels,
             out_channels = self.num_classes,
@@ -36,4 +36,3 @@ class Res50_FCN(BaseModel):
 
 
 
-input = torch.randn(2,3,128,128)

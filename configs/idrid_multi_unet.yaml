@@ -9,7 +9,7 @@ model:
         weight_decay: 1e-4
         loss:
 #            target: segment.losses.segmentation.CE_DiceLoss
-            target: segment.losses.dice_loss.DC_and_CE_loss
+            target: segment.losses.seg.dice_loss.DC_and_CE_loss
 
 
 
