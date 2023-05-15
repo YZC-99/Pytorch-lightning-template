@@ -15,16 +15,16 @@ model:
 dataset:
     target: segment.dataloader.DataModuleFromConfig
     params:
-        batch_size: 2
+        batch_size: 4
         num_workers: 0
         train:
             target: segment.dataloader.idrid.IDRIDSegTrain
             params:
                 size: 128
-                seg_object: 5. Optic Disc
+                seg_object: dr_single
 
         validation:
             target: segment.dataloader.idrid.IDRIDSegEval
             params:
                 size: 128
-                seg_object: 5. Optic Disc
+                seg_object: dr_single

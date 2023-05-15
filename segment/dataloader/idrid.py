@@ -13,7 +13,13 @@ def preprocess_mask(img):
     mask[img >= 1] = 1
     return mask
 
-
+def preprocess_multi_mask(img):
+    mask = np.zeros_like(img)
+    mask[img == 15] = 1
+    mask[img == 38] = 2
+    mask[img == 75] = 3
+    mask[img == 113] = 4
+    return mask
 
 class SegmentationBase(Dataset):
     def __init__(self,
@@ -28,6 +34,11 @@ class SegmentationBase(Dataset):
         self.data_root = data_root
         self.segmentation_root = os.path.join(segmentation_root,self.seg_object)
 
+        endwith = ''
+        if self.seg_object == '5. Optic Dis':
+            endwith = '_OD.tif'
+        elif self.seg_object == 'multi_seg' or self.seg_object == 'dr_single':
+            endwith = '_gt.png'
 
         with open(self.data_csv, "r") as f:
             self.image_paths = f.read().splitlines()
@@ -36,7 +47,7 @@ class SegmentationBase(Dataset):
             "relative_file_path_": [l for l in self.image_paths],
             "file_path_": [os.path.join(self.data_root, l)
                            for l in self.image_paths],
-            "segmentation_path_": [os.path.join(self.segmentation_root, l).replace(".jpg", "_OD.tif")
+            "segmentation_path_": [os.path.join(self.segmentation_root, l).replace(".jpg", endwith)
                                    for l in self.image_paths]
         }
         self.train = train
@@ -53,9 +64,11 @@ class SegmentationBase(Dataset):
         if self.train:
             self.transforms = T.Compose([
                                         T.RandomResize(min_size, max_size),
-                                        T.Resize(crop_size),
+                                        # T.Resize(crop_size),
                                         T.RandomHorizontalFlip(0.5),
                                         T.RandomVerticalFlip(0.5),
+                                        T.CenterCrop(crop_size),
+                                        # T.RandomCrop(crop_size),
                                         T.ToTensor(),
                                         T.Normalize(mean=mean, std=std),
             ])
@@ -77,14 +90,17 @@ class SegmentationBase(Dataset):
         if not image.mode == "RGB":
             image = image.convert("RGB")
         segmentation = Image.open(example["segmentation_path_"])
-        if not self.train:
+        if not self.train and self.seg_object == "5. Optic Disc":
             segmentation = segmentation.transpose(Image.ROTATE_90)
         if not segmentation.mode == "L":
             segmentation = segmentation.convert("L")
         assert segmentation.mode == "L", segmentation.mode
         segmentation = np.array(segmentation).astype(np.uint8)
         # Preprocess
-        segmentation = preprocess_mask(segmentation)
+        if self.seg_object == 'multi_seg':
+            segmentation = preprocess_multi_mask(segmentation)
+        else:
+            segmentation = preprocess_mask(segmentation)
         segmentation = Image.fromarray(segmentation)
 
         img, mask = self.transforms(image, segmentation)

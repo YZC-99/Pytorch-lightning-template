@@ -1,105 +1,41 @@
 from typing import Dict
+from PIL import Image
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from torchvision.transforms.functional import to_tensor
 from typing import List,Tuple, Dict, Any, Optional
 from omegaconf import OmegaConf
 from segment.utils.general import initialize_from_config
 from torch.optim import lr_scheduler
 import pytorch_lightning as pl
+
 from torchmetrics import JaccardIndex,Dice
+from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_precision_score
 
-class DoubleConv(nn.Sequential):
-    def __init__(self, in_channels, out_channels, mid_channels=None):
-        if mid_channels is None:
-            mid_channels = out_channels
-        super(DoubleConv, self).__init__(
-            nn.Conv2d(in_channels, mid_channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(mid_channels),
-            nn.ReLU(inplace=True),
-            nn.Conv2d(mid_channels, out_channels, kernel_size=3, padding=1, bias=False),
-            nn.BatchNorm2d(out_channels),
-            nn.ReLU(inplace=True)
-        )
+import torchvision.transforms as transforms
+import numpy as np
+import matplotlib.pyplot as plt
+import json
+from .nn import Unet_Encoder,Unet_Decoder,OutConv
 
+def color_code_labels(labels):
+    unique_labels = torch.unique(labels)
+    num_labels = len(unique_labels)
+    colormap = plt.cm.get_cmap('tab10')  # 使用tab10色彩映射，可根据需要选择其他映射
+    colors = colormap(np.linspace(0, 1, num_labels))
 
-class Down(nn.Sequential):
-    def __init__(self, in_channels, out_channels):
-        super(Down, self).__init__(
-            nn.MaxPool2d(2, stride=2),
-            DoubleConv(in_channels, out_channels)
-        )
+    # 创建彩色编码的图像
+    color_image = torch.zeros((labels.shape[0], labels.shape[1], 3), dtype=torch.float32)
+    for i, label in enumerate(unique_labels):
+        color = torch.tensor(colors[i][:3], dtype=torch.float32)  # 取RGB通道的颜色值，并指定数据类型
+        mask = labels == label
+        color_image[mask[:, :, 0]] = color
 
+    return color_image
 
-class Up(nn.Module):
-    def __init__(self, in_channels, out_channels, bilinear=True):
-        super(Up, self).__init__()
-        if bilinear:
-            self.up = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
-            self.conv = DoubleConv(in_channels, out_channels, in_channels // 2)
-        else:
-            self.up = nn.ConvTranspose2d(in_channels, in_channels // 2, kernel_size=2, stride=2)
-            self.conv = DoubleConv(in_channels, out_channels)
-
-    def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
-        x1 = self.up(x1)
-        # [N, C, H, W]
-        diff_y = x2.size()[2] - x1.size()[2]
-        diff_x = x2.size()[3] - x1.size()[3]
-
-        # padding_left, padding_right, padding_top, padding_bottom
-        x1 = F.pad(x1, [diff_x // 2, diff_x - diff_x // 2,
-                        diff_y // 2, diff_y - diff_y // 2])
-
-        x = torch.cat([x2, x1], dim=1)
-        x = self.conv(x)
-        return x
-
-
-class OutConv(nn.Sequential):
-    def __init__(self, in_channels, num_classes):
-        super(OutConv, self).__init__(
-            nn.Conv2d(in_channels, num_classes, kernel_size=1)
-        )
-
-
-class Encoder(pl.LightningModule):
-    def __init__(self,in_channels,base_c,bilinear=True):
-        super(Encoder,self).__init__()
-        factor = 2 if bilinear else 1
-        self.in_conv = DoubleConv(in_channels, base_c)
-        self.down1 = Down(base_c, base_c * 2)
-        self.down2 = Down(base_c * 2, base_c * 4)
-        self.down3 = Down(base_c * 4, base_c * 8)
-        self.down4 = Down(base_c * 8, base_c * 16 // factor)
-
-    def forward(self,x):
-        x1 = self.in_conv(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
-
-        return {"x1":x1,"x2":x2,"x3":x3,"x4":x4,"x5":x5}
-
-class Decoder(pl.LightningModule):
-    def __init__(self,base_c,bilinear=True):
-        super(Decoder,self).__init__()
-        factor = 2 if bilinear else 1
-        self.up1 = Up(base_c * 16, base_c * 8 // factor, bilinear)
-        self.up2 = Up(base_c * 8, base_c * 4 // factor, bilinear)
-        self.up3 = Up(base_c * 4, base_c * 2 // factor, bilinear)
-        self.up4 = Up(base_c * 2, base_c, bilinear)
-
-
-    def forward(self,x_dict):
-        x = self.up1(x_dict['x5'],x_dict['x4'])
-        x = self.up2(x,x_dict['x3'])
-        x = self.up3(x,x_dict['x2'])
-        x = self.up4(x,x_dict['x1'])
-        return x
-
-class UNet(pl.LightningModule):
+class BaseUnet(pl.LightningModule):
     def __init__(self,
                  image_key: str,
                  in_channels: int,
@@ -110,18 +46,19 @@ class UNet(pl.LightningModule):
                  loss: OmegaConf,
                  scheduler: Optional[OmegaConf] = None,
                  ):
-        super(UNet, self).__init__()
+        super(BaseUnet, self).__init__()
         self.weight_decay = weight_decay
         self.image_key = image_key
         self.loss = initialize_from_config(loss)
         self.scheduler = scheduler
         self.in_channels = in_channels
         self.num_classes = num_classes
-        self.bilinear = bilinear
 
-        self.encoder = Encoder(in_channels,base_c,bilinear=True)
-        self.decoder = Decoder(base_c,bilinear=True)
-        self.out_conv = OutConv(base_c, num_classes)
+        # self.bilinear = bilinear
+        #
+        # self.encoder = Unet_Encoder(in_channels,base_c,bilinear=self.bilinear)
+        # self.decoder = Unet_Decoder(base_c,bilinear=self.bilinear)
+        # self.out_conv = OutConv(base_c, num_classes)
 
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
@@ -163,18 +100,51 @@ class UNet(pl.LightningModule):
         y = batch['label']
         logits = self(x)
         preds = nn.functional.softmax(logits).argmax(1)
-        jaccard = JaccardIndex(num_classes=2,task='binary')
+        y_true = y.cpu().numpy().flatten()
+        y_pred = preds.cpu().numpy().flatten()
+
+        if self.num_classes == 2:
+            task = 'binary'
+            y_probs = nn.functional.softmax(logits, dim=1)[:, 1].cpu().numpy().flatten()
+            precision, recall, _ = precision_recall_curve(y_true, y_probs)
+            aupr = auc(recall, precision)
+            roc_auc = roc_auc_score(y_true, y_pred)
+            average_precision = average_precision_score(y_true, y_probs)
+        else:
+            task = 'multiclass'
+            aupr, roc_auc, average_precision = None, None, None
+
+        jaccard = JaccardIndex(num_classes=self.num_classes,task=task)
         jaccard = jaccard.to(self.device)
         iou = jaccard(preds,y)
-
-        dice = Dice(num_classes=2,average='macro')
+        dice = Dice(num_classes=self.num_classes,average='macro')
         dice = dice.to(self.device)
         dice_score = dice(preds,y)
+
+        tp = ((y_true == 1) & (y_pred == 1)).sum()
+        tn = ((y_true == 0) & (y_pred == 0)).sum()
+        fp = ((y_true == 0) & (y_pred == 1)).sum()
+        fn = ((y_true == 1) & (y_pred == 0)).sum()
+
+        eps = 1e-6
+        pr = tp / (tp + fp + eps)
+        se = tp / (tp + fn + eps)
+        sp = tn / (tn + fp + eps)
+        acc = (tp + tn) / (tp + tn + fp + fn + eps)
 
         loss = self.loss(logits, y)
         self.log("val/loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
         self.log("val/iou", iou, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
         self.log("val/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("val/pr", pr, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("val/se", se, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("val/sp", sp, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+        self.log("val/acc", acc, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+        if self.num_classes == 2:
+            self.log("val/aupr", aupr, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+            self.log("val/roc_auc", roc_auc, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+            self.log("val/average_precision", average_precision, prog_bar=True, logger=True, on_step=False,
+                     on_epoch=True, sync_dist=True)
         return loss
 
 
@@ -233,9 +203,80 @@ class UNet(pl.LightningModule):
         out = self(x)
         out = torch.nn.functional.softmax(out,dim=1)
         predict = out.argmax(1)
+
+        # # 彩色编码标签图像
+        # y_color = color_code_labels(y)
+        # predict_color = color_code_labels(predict)
+        #
+        # # 将张量转换为PIL图像，以便显示
+        # transform = transforms.ToPILImage()
+        # y_color_pil = transform(y_color)
+        # predict_color_pil = transform(predict_color)
+        #
+        # # 添加到日志字典中
+        # log["image"] = x
+        # log["label"] = y_color_pil
+        # log["predict"] = predict_color_pil
+        # return log
+
+        #======================
+        # palette_path = "./data/IDRID/palette.json"
+        # with open(palette_path, "rb") as f:
+        #     pallette_dict = json.load(f)
+        #     pallette = []
+        #     for v in pallette_dict.values():
+        #         pallette += v
+        # y = y.squeeze(0)
+        # y = y.to("cpu").numpy().astype(np.uint8)
+        # mask = Image.fromarray(y)
+        # mask.putpalette(pallette)
+        # y = to_tensor(mask)
+        #=====================
+
         log["image"] = x
         log["label"] = y
         log["predict"] = predict
         return log
+
+
+class UNet(BaseUnet):
+    def __init__(self,
+                 image_key: str,
+                 in_channels: int,
+                 num_classes: int,
+                 bilinear: bool,
+                 base_c: int,
+                 weight_decay: float,
+                 loss: OmegaConf,
+                 scheduler: Optional[OmegaConf] = None,
+                 ):
+        super(UNet, self).__init__(
+                 image_key,
+                 in_channels,
+                 num_classes,
+                 bilinear,
+                 base_c,
+                 weight_decay,
+                 loss,
+                 scheduler,)
+        self.weight_decay = weight_decay
+        self.image_key = image_key
+        self.loss = initialize_from_config(loss)
+        self.scheduler = scheduler
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+        self.bilinear = bilinear
+
+        self.encoder = Unet_Encoder(in_channels,base_c,bilinear=True)
+        self.decoder = Unet_Decoder(base_c,bilinear=True)
+        self.out_conv = OutConv(base_c, num_classes)
+
+
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        x_dict = self.encoder(x)
+        x = self.decoder(x_dict)
+        logits = self.out_conv(x)
+        return logits
+
 
 

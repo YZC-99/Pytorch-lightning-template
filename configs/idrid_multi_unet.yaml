@@ -3,13 +3,15 @@ model:
     params:
         image_key: image
         in_channels: 3
-        num_classes: 2
+        num_classes: 5
         bilinear: True
         base_c: 64
         weight_decay: 1e-4
         loss:
 #            target: segment.losses.segmentation.CE_DiceLoss
             target: segment.losses.dice_loss.DC_and_CE_loss
+
+
 
 
 dataset:
@@ -21,10 +23,10 @@ dataset:
             target: segment.dataloader.idrid.IDRIDSegTrain
             params:
                 size: 128
-                seg_object: 5. Optic Disc
+                seg_object: multi_seg
 
         validation:
             target: segment.dataloader.idrid.IDRIDSegEval
             params:
                 size: 128
-                seg_object: 5. Optic Disc
+                seg_object: multi_seg
