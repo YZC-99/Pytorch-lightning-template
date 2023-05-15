@@ -18,11 +18,11 @@ dataset:
         train:
             target: segment.dataloader.idrid.IDRIDSegTrain
             params:
-                size: 128
+                size: 256
                 seg_object: dr_single
 
         validation:
             target: segment.dataloader.idrid.IDRIDSegEval
             params:
-                size: 128
+                size: 256
                 seg_object: dr_single
