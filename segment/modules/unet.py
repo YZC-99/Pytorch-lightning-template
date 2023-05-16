@@ -196,34 +196,6 @@ class BaseUnet(pl.LightningModule):
         out = torch.nn.functional.softmax(out,dim=1)
         predict = out.argmax(1)
 
-        # # 彩色编码标签图像
-        # y_color = color_code_labels(y)
-        # predict_color = color_code_labels(predict)
-        #
-        # # 将张量转换为PIL图像，以便显示
-        # transform = transforms.ToPILImage()
-        # y_color_pil = transform(y_color)
-        # predict_color_pil = transform(predict_color)
-        #
-        # # 添加到日志字典中
-        # log["image"] = x
-        # log["label"] = y_color_pil
-        # log["predict"] = predict_color_pil
-        # return log
-
-        #======================
-        # palette_path = "./data/IDRID/palette.json"
-        # with open(palette_path, "rb") as f:
-        #     pallette_dict = json.load(f)
-        #     pallette = []
-        #     for v in pallette_dict.values():
-        #         pallette += v
-        # y = y.squeeze(0)
-        # y = y.to("cpu").numpy().astype(np.uint8)
-        # mask = Image.fromarray(y)
-        # mask.putpalette(pallette)
-        # y = to_tensor(mask)
-        #=====================
 
         log["image"] = x
         log["label"] = y

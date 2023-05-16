@@ -3,6 +3,9 @@ import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 
+
+from segment.losses.seg.dice_loss import *
+
 def cross_entropy(logits, targets, reduction='mean'):
     loss = F.cross_entropy(logits, targets, reduction=reduction)
     return loss
@@ -131,3 +134,50 @@ class GRWCrossEntropyLoss(nn.Module):
             str: The name of this loss item.
         """
         return self._loss_name
+
+
+class Dice_GRWCrossEntropyLoss(GRWCrossEntropyLoss):
+
+    def __init__(self,
+                 use_sigmoid=False,
+                 use_mask=False,
+                 reduction='mean',
+                 class_weight=None,
+                 loss_weight=1.0,
+                 loss_name='loss_ce',
+                 exp_scale=1
+                 ):
+        super(Dice_GRWCrossEntropyLoss, self).__init__(
+            use_sigmoid,
+            use_mask,
+            reduction,
+            class_weight,
+            loss_weight,
+            loss_name,
+            exp_scale
+        )
+
+        self.dc = SoftDiceLoss(apply_nonlin=softmax_helper)
+
+    def forward(self,
+                cls_score,
+                label,
+                weight=None,
+                avg_factor=None,
+                reduction_override=None,
+                **kwargs):
+        """Forward function."""
+        assert reduction_override in (None, 'none', 'mean', 'sum')
+        reduction = (
+            reduction_override if reduction_override else self.reduction)
+        if self.class_weight is not None:
+            class_weight = cls_score.new_tensor(self.class_weight)
+        else:
+            class_weight = None
+        loss_cls = self.loss_weight * nn.functional.cross_entropy(cls_score,label,weight=class_weight)
+
+        dc_loss = self.dc(cls_score, label)
+
+        return loss_cls + 1 + dc_loss
+
+
