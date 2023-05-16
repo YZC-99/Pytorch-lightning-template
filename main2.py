@@ -9,6 +9,7 @@ import sys
 import argparse, os, sys, datetime, glob, importlib
 from pathlib import Path
 from omegaconf import OmegaConf
+import torch
 import pytorch_lightning as pl
 
 from segment.utils.general import get_config_from_file, initialize_from_config, setup_callbacks
@@ -29,13 +30,15 @@ def instantiate_from_config(config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='ddr_dr_single_align_res50FCN')
+    parser.add_argument('-c', '--config', type=str, default='ddr_dr_single_align_logits_out_res50FCN')
     parser.add_argument('-s', '--seed', type=int, default=0)
+    
     parser.add_argument('-nn', '--num_nodes', type=int, default=1)
     parser.add_argument('-ng', '--num_gpus', type=int, default=1)
+    
     parser.add_argument('-u', '--update_every', type=int, default=1)
     parser.add_argument('-e', '--epochs', type=int, default=300)
-    parser.add_argument('-lr', '--base_lr', type=float, default=0.01)
+    parser.add_argument('-lr', '--base_lr', type=float, default=0.0001)
     parser.add_argument('-a', '--use_amp', default=False, action='store_true')
     parser.add_argument('-b', '--batch_frequency', type=int, default=10000)
     parser.add_argument('-m', '--max_images', type=int, default=1)
@@ -61,7 +64,8 @@ if __name__ == '__main__':
     # Build data modules
     data = initialize_from_config(config.dataset)
     data.prepare_data()
-
+    
+    
     # Build trainer
     trainer = pl.Trainer(max_epochs=exp_config.epochs,
                          precision=16 if exp_config.use_amp else 32,
