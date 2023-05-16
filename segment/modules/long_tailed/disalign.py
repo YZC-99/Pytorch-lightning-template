@@ -74,7 +74,7 @@ class Align_Res50_FCN(Res50_FCN):
         output['out'] = output_out
         return output
 
-class Align_UNet(Res50_FCN):
+class Align_UNet(UNet):
     def __init__(self,
                  image_key: str,
                  in_channels: int,
@@ -97,7 +97,7 @@ class Align_UNet(Res50_FCN):
         )
 
         self.confidence_layer = nn.Sequential(
-            nn.Conv2d(self.decoder.up4[0].out_channels, 1, kernel_size=1),
+            nn.Conv2d(self.decoder.up4.conv[3].out_channels, 1, kernel_size=1),
             nn.BatchNorm2d(1),
             nn.ReLU()
         )

@@ -1,5 +1,5 @@
 model:
-    target: segment.modules.unet.UNet
+    target: segment.modules.long_tailed.disalign.Align_UNet
     params:
         image_key: image
         in_channels: 3
