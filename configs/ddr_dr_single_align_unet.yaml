@@ -10,7 +10,8 @@ model:
 
         loss:
 #            target: segment.losses.segmentation.CE_DiceLoss
-            target: segment.losses.long_tailed.grw_cross_entropy_loss.GRWCrossEntropyLoss
+#            target: segment.losses.long_tailed.grw_cross_entropy_loss.GRWCrossEntropyLoss
+            target: segment.losses.long_tailed.grw_cross_entropy_loss.Dice_GRWCrossEntropyLoss
             params:
                 class_weight: ./data/DDR/single_class_weight.txt
 
