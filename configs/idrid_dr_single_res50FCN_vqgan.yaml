@@ -1,37 +1,34 @@
 model:
-  base_learning_rate: 4.5e-6
-  target: segment.modules.vqgan.vqgan.VQModel
+  base_learning_rate: 1e-4
+  target: segment.modules.seg_vqgan.Res50_FCN_VQGAN
   params:
-#    ckpt_path: ''
+#    ckpt_path: 12312312
+    image_key: image
+    in_channels: 3
+    num_classes: 2
+    weight_decay: 1e-4
     embed_dim: 256
     n_embed: 1024
-    image_key: label
     ddconfig:
       double_z: false
       z_channels: 2048 #这个值必须要与backbone的channels一致
       resolution: 256
       in_channels: 1
-      out_ch: 1
+      out_ch: 2
       ch: 128
       ch_mult:
-      - 1
-      - 2
-      - 2
-      - 4
+          - 1
+          - 2
+          - 2
+          - 4
       num_res_blocks: 2
       attn_resolutions:
-      - 32
+          - 32
       dropout: 0.0
 
-    lossconfig:
-      target: segment.losses.recon.vqperceptual.VQLPIPSWithDiscriminator
-      params:
-        disc_conditional: false
-        disc_in_channels: 1
-        disc_num_layers: 2
-        disc_start: 1
-        disc_weight: 0.6
-        codebook_weight: 1.0
+    loss:
+        target: segment.losses.seg.dice_loss.DC_and_CE_loss
+
 
 dataset:
     target: segment.dataloader.DataModuleFromConfig
@@ -43,12 +40,9 @@ dataset:
             params:
                 size: 256
                 seg_object: dr_single
-                aug: False
 
         validation:
             target: segment.dataloader.idrid.IDRIDSegEval
             params:
                 size: 256
                 seg_object: dr_single
-                aug: False
-

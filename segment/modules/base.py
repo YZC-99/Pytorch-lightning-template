@@ -29,10 +29,7 @@ class BaseModel(pl.LightningModule):
 
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        x_dict = self.encoder(x)
-        x = self.decoder(x_dict)
-        logits = self.out_conv(x)
-        return logits
+        pass
 
     def init_from_ckpt(self,path: str,ignore_keys: List[str] = list()):
         sd = torch.load(path,map_location='cpu')['state_dict']
