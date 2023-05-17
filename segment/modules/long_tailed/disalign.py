@@ -6,6 +6,7 @@ from omegaconf import OmegaConf
 from typing import List,Tuple, Dict, Any, Optional
 
 from segment.modules.fcn import Res50_FCN
+from segment.modules.unet import UNet
 
 class IdentityModule(torch.nn.Module):
     def forward(self, x):
@@ -38,6 +39,8 @@ class Align_Res50_FCN(Res50_FCN):
             padding=self.backbone.aux_classifier[4].padding,
         )
 
+
+
         self.classifier = torch.nn.Conv2d(
             in_channels=self.backbone.classifier[4].in_channels,
             out_channels=self.num_classes,
@@ -52,6 +55,7 @@ class Align_Res50_FCN(Res50_FCN):
         )
 
         self.backbone.classifier[4] = IdentityModule()
+
         # Magnitude and Margin of DisAlign+
         self.logit_scale = nn.Parameter(torch.ones(1, self.num_classes, 1, 1))
         self.logit_bias = nn.Parameter(torch.zeros(1, self.num_classes, 1, 1))
@@ -79,6 +83,51 @@ class Align_Res50_FCN(Res50_FCN):
         output['aux'] = output_aux
         output['out'] = output_out
         return output
+
+class Align_UNet(UNet):
+    def __init__(self,
+                 image_key: str,
+                 in_channels: int,
+                 num_classes: int,
+                 bilinear: bool,
+                 base_c: int,
+                 weight_decay: float,
+                 loss: OmegaConf,
+                 scheduler: Optional[OmegaConf] = None,
+                 ):
+        super(Align_UNet, self).__init__(
+                 image_key,
+                 in_channels,
+                 num_classes,
+                 bilinear,
+                 base_c,
+                 weight_decay,
+                 loss,
+                 scheduler,
+        )
+
+        self.confidence_layer = nn.Sequential(
+            nn.Conv2d(self.decoder.up4.conv[3].out_channels, 1, kernel_size=1),
+            nn.BatchNorm2d(1),
+            nn.ReLU()
+        )
+        # Magnitude and Margin of DisAlign+
+        self.logit_scale = nn.Parameter(torch.ones(1, self.num_classes, 1, 1))
+        self.logit_bias = nn.Parameter(torch.zeros(1, self.num_classes, 1, 1))
+        # Confidence function，类似于linear层，是一个1*1得卷积
+
+    def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
+        x_dict = self.encoder(x)
+        output = self.decoder(x_dict)
+
+        confidence = self.confidence_layer(output).sigmoid()
+        output = self.out_conv(output)
+
+        # only adjust the foreground classification scores
+        scores_tmp = confidence * (output * self.logit_scale + self.logit_bias)
+        output = scores_tmp + (1 - confidence) * output
+        return output
+
 
 
 

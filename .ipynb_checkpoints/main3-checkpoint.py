@@ -30,7 +30,11 @@ def instantiate_from_config(config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
+<<<<<<< HEAD:.ipynb_checkpoints/main3-checkpoint.py
     parser.add_argument('-c', '--config', type=str, default='ddr_dr_single_unet')
+=======
+    parser.add_argument('-c', '--config', type=str, default='ddr_dr_single_align_unet')
+>>>>>>> 80038d1a061ce1029e514319b8a2a3fb3b4d4707:main.py
     parser.add_argument('-s', '--seed', type=int, default=0)
     
     parser.add_argument('-nn', '--num_nodes', type=int, default=1)
