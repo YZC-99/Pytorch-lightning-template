@@ -69,6 +69,9 @@ class VQModel(pl.LightningModule):
     def forward(self, input):
         quant, diff, _ = self.encode(input)
         dec = self.decode(quant)
+
+        # print(self.encode)
+        # print(self.decode)
         return dec, diff
 
     def get_input(self, batch, k):

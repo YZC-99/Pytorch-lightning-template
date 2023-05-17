@@ -29,13 +29,13 @@ def instantiate_from_config(config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='ddr_dr_single_align_unet')
+    parser.add_argument('-c', '--config', type=str, default='vqgan/idrid_vqgan_f8')
     parser.add_argument('-s', '--seed', type=int, default=0)
     parser.add_argument('-nn', '--num_nodes', type=int, default=1)
     parser.add_argument('-ng', '--num_gpus', type=int, default=1)
     parser.add_argument('-u', '--update_every', type=int, default=1)
     parser.add_argument('-e', '--epochs', type=int, default=300)
-    parser.add_argument('-lr', '--base_lr', type=float, default=0.0001)
+    # parser.add_argument('-lr', '--base_lr', type=float, default=4.5e-6)
     parser.add_argument('-a', '--use_amp', default=False, action='store_true')
     parser.add_argument('-b', '--batch_frequency', type=int, default=10000)
     parser.add_argument('-m', '--max_images', type=int, default=1)
@@ -48,12 +48,12 @@ if __name__ == '__main__':
     # Load configuration
     config = get_config_from_file(Path("configs")/(args.config+".yaml"))
     exp_config = OmegaConf.create({"name": args.config, "epochs": args.epochs, "update_every": args.update_every,
-                                   "base_lr": args.base_lr, "use_amp": args.use_amp, "batch_frequency": args.batch_frequency,
+                                    "use_amp": args.use_amp, "batch_frequency": args.batch_frequency,
                                    "max_images": args.max_images})
 
     # Build model
     model = initialize_from_config(config.model)
-    model.learning_rate = exp_config.base_lr
+    model.learning_rate = config.model.base_learning_rate
 
     # Setup callbacks
     callbacks, logger = setup_callbacks(exp_config, config)
