@@ -23,10 +23,11 @@ def preprocess_multi_mask(img):
 
 class SegmentationBase(Dataset):
     def __init__(self,
-                 data_csv, data_root, segmentation_root,
+                 data_csv, data_root, segmentation_root,aug = True,
                  size=None, interpolation="bicubic",
                  n_labels=2, shift_segmentation=False, train=True,seg_object='5. Optic Disc'
                  ):
+        self.aug = aug
         self.seg_object = seg_object
         self.n_labels = n_labels
         self.shift_segmentation = shift_segmentation
@@ -62,16 +63,23 @@ class SegmentationBase(Dataset):
         std = (0.315, 0.162, 0.052)
         # ==================
         if self.train:
-            self.transforms = T.Compose([
-                                        T.RandomResize(min_size, max_size),
-                                        # T.Resize(crop_size),
-                                        T.RandomHorizontalFlip(0.5),
-                                        T.RandomVerticalFlip(0.5),
-                                        T.CenterCrop(crop_size),
-                                        # T.RandomCrop(crop_size),
-                                        T.ToTensor(),
-                                        T.Normalize(mean=mean, std=std),
-            ])
+            if self.aug:
+                self.transforms = T.Compose([
+                                            T.RandomResize(min_size, max_size),
+                                            # T.Resize(crop_size),
+                                            T.RandomHorizontalFlip(0.5),
+                                            T.RandomVerticalFlip(0.5),
+                                            T.CenterCrop(crop_size),
+                                            # T.RandomCrop(crop_size),
+                                            T.ToTensor(),
+                                            T.Normalize(mean=mean, std=std),
+                ])
+            else:
+                self.transforms = T.Compose([
+                    T.Resize(self.size),
+                    T.ToTensor(),
+                    # T.CenterCrop(1024),
+                    T.Normalize(mean=mean, std=std),])
         else:
             self.transforms = T.Compose([
                                          T.Resize(1024),
@@ -110,20 +118,20 @@ class SegmentationBase(Dataset):
 
 
 class IDRIDSegTrain(SegmentationBase):
-    def __init__(self, size=None, train=True,seg_object='5. Optic Disc', interpolation="bicubic"):
+    def __init__(self, size=None, train=True,aug=True,seg_object='5. Optic Disc', interpolation="bicubic"):
         super().__init__(data_csv='data/IDRID/idrid_train.txt',
                          data_root='data/IDRID/images',
                          segmentation_root='data/IDRID/masks',
                          size=size, interpolation=interpolation, train=train,
-                         n_labels=2,seg_object=seg_object)
+                         n_labels=2,seg_object=seg_object,aug=aug)
 
 
 class IDRIDSegEval(SegmentationBase):
-    def __init__(self, size=None, train=False,seg_object='5. Optic Disc', interpolation="bicubic"):
+    def __init__(self, size=None, train=False,aug=True,seg_object='5. Optic Disc', interpolation="bicubic"):
         super().__init__(data_csv='data/IDRID/idrid_eval.txt',
                          data_root='data/IDRID/images',
                          segmentation_root='data/IDRID/masks',
                          size=size, interpolation=interpolation, train=train,
-                         n_labels=2,seg_object=seg_object)
+                         n_labels=2,seg_object=seg_object,aug=aug)
 
 
