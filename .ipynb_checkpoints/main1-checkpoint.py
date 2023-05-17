@@ -30,7 +30,7 @@ def instantiate_from_config(config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='ddr_dr_single_align_grwCE_Dice_unet')
+    parser.add_argument('-c', '--config', type=str, default='vqgan/idrid_vqgan_f8')
     parser.add_argument('-s', '--seed', type=int, default=0)
     
     parser.add_argument('-nn', '--num_nodes', type=int, default=1)

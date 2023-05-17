@@ -91,7 +91,7 @@ class BaseUnet(pl.LightningModule):
         x = self.get_input(batch, self.image_key)
         y = batch['label']
         logits = self(x)
-        preds = nn.functional.softmax(logits).argmax(1)
+        preds = nn.functional.softmax(logits,dim=1).argmax(1)
         y_true = y.cpu().numpy().flatten()
         y_pred = preds.cpu().numpy().flatten()
 

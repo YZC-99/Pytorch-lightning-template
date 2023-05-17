@@ -4,12 +4,13 @@ model:
   params:
     embed_dim: 256
     n_embed: 1024
+    image_key: label
     ddconfig:
       double_z: False
       z_channels: 256
       resolution: 256
-      in_channels: 3
-      out_ch: 3
+      in_channels: 1
+      out_ch: 1
       ch: 128
       ch_mult: [ 1,1,2,2,4]  # num_down = len(ch_mult)-1
       num_res_blocks: 2
@@ -20,8 +21,9 @@ model:
       target: segment.losses.recon.vqperceptual.VQLPIPSWithDiscriminator
       params:
         disc_conditional: False
-        disc_in_channels: 3
-        disc_start: 10000
+        disc_in_channels: 1
+        disc_num_layers: 2
+        disc_start: 1
         disc_weight: 0.8
         codebook_weight: 1.0
 
@@ -33,12 +35,14 @@ dataset:
         train:
             target: segment.dataloader.idrid.IDRIDSegTrain
             params:
-                size: 256
+                size: 128
                 seg_object: dr_single
+                aug: False
 
         validation:
             target: segment.dataloader.idrid.IDRIDSegEval
             params:
-                size: 256
+                size: 128
                 seg_object: dr_single
+                aug: False
 
