@@ -1,4 +1,5 @@
 model:
+    base_learning_rate: 1e-4
     target: segment.modules.unet.UNet
     params:
         image_key: image

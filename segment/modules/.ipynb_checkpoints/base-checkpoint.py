@@ -1,15 +1,16 @@
-import torchvision.models.segmentation as seg
 import torch
 import torch.nn as nn
+from typing import List,Tuple, Dict, Any, Optional
+from omegaconf import OmegaConf
+from segment.utils.general import initialize_from_config
+from torch.optim import lr_scheduler
+import pytorch_lightning as pl
+
 from torchmetrics import JaccardIndex,Dice
 from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_precision_score
 
-from omegaconf import OmegaConf
-from typing import List,Tuple, Dict, Any, Optional
 
-from .base import BaseModel
-
-class Res50_FCN(BaseModel):
+class BaseModel(pl.LightningModule):
     def __init__(self,
                  image_key: str,
                  in_channels: int,
@@ -18,58 +19,43 @@ class Res50_FCN(BaseModel):
                  loss: OmegaConf,
                  scheduler: Optional[OmegaConf] = None,
                  ):
-        super(Res50_FCN, self).__init__(
-                 image_key,
-                 in_channels,
-                 num_classes,
-                 weight_decay,
-                 loss,
-                 scheduler,)
-        self.backbone = seg.fcn_resnet50(pretrained=True)
-        self.backbone.classifier[4] = torch.nn.Conv2d(
-            in_channels = self.backbone.classifier[4].in_channels,
-            out_channels = self.num_classes,
-            kernel_size=self.backbone.classifier[4].kernel_size,
-            stride=self.backbone.classifier[4].stride,
-            padding=self.backbone.classifier[4].padding,
-        )
-        self.backbone.aux_classifier[4] = torch.nn.Conv2d(
-            in_channels = self.backbone.aux_classifier[4].in_channels,
-            out_channels = self.num_classes,
-            kernel_size=self.backbone.aux_classifier[4].kernel_size,
-            stride=self.backbone.aux_classifier[4].stride,
-            padding=self.backbone.aux_classifier[4].padding,
-        )
+        super(BaseModel, self).__init__()
+        self.weight_decay = weight_decay
+        self.image_key = image_key
+        self.loss = initialize_from_config(loss)
+        self.scheduler = scheduler
+        self.in_channels = in_channels
+        self.num_classes = num_classes
 
         self.color_map = {0: [0, 0, 0], 1: [128, 0, 0], 2: [0, 128, 0], 3: [128, 128, 0], 4: [0, 0, 128]}
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        output = self.backbone(x)
-        return output
-    
-    def configure_optimizers(self) -> Tuple[List, List]:
-        lr = self.learning_rate
+        pass
 
-        optimizers = [torch.optim.Adam(self.parameters(), lr=lr, betas=(0.9, 0.99), weight_decay=self.weight_decay)]
+    def init_from_ckpt(self,path: str,ignore_keys: List[str] = list()):
+        sd = torch.load(path,map_location='cpu')['state_dict']
+        keys = list(sd.keys())
+        for k in keys:
+            for ik in ignore_keys:
+                if k.startswith(ik):
+                    print("Deleting key {} from state_dict.".format(k))
+                    del sd[k]
+        self.load_state_dict(sd, strict=False)
+        print(f"Restored from {path}")
 
-        total_epochs = self.trainer.max_epochs
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizers[0], T_max=total_epochs)
-
-        schedulers = [
-            {
-                'scheduler': scheduler,
-                'interval': 'epoch',
-                'frequency': 1
-            }
-        ]
-
-        return optimizers, schedulers
+    def get_input(self, batch: Tuple[Any, Any], key: str = 'image') -> Any:
+        x = batch[key]
+        if len(x.shape) == 3:
+            x = x[..., None]
+        if x.dtype == torch.double:
+            x = x.float()
+        return x.contiguous()
 
     def training_step(self, batch: Tuple[Any, Any], batch_idx: int, optimizer_idx: int = 0) -> torch.FloatTensor:
         x = self.get_input(batch, self.image_key)
         y = batch['label']
-        output = self(x)
-        loss = self.loss(output['out'], y) + 0.5 * self.loss(output['aux'], y)
+        logits = self(x)
+        loss = self.loss(logits, y)
         self.log("train/lr", self.optimizers().param_groups[0]['lr'], prog_bar=True, logger=True, on_epoch=True)
         self.log("train/total_loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
         return loss
@@ -77,8 +63,7 @@ class Res50_FCN(BaseModel):
     def validation_step(self, batch: Tuple[Any, Any], batch_idx: int) -> Dict:
         x = self.get_input(batch, self.image_key)
         y = batch['label']
-        logits = self(x)['out']
-
+        logits = self(x)
         preds = nn.functional.softmax(logits, dim=1).argmax(1)
         y_true = y.cpu().numpy().flatten()
         y_pred = preds.cpu().numpy().flatten()
@@ -127,12 +112,60 @@ class Res50_FCN(BaseModel):
                      on_epoch=True, sync_dist=True)
         return loss
 
+
+    def configure_optimizers(self) -> Tuple[List, List]:
+        lr = self.learning_rate
+
+        # optimizers = [torch.optim.AdamW(optim_groups, lr=lr, betas=(0.9, 0.99), weight_decay=1e-4)]
+        optimizers = [torch.optim.Adam(self.parameters(), lr=lr, betas=(0.9, 0.99), weight_decay=self.weight_decay)]
+        # optimizers = [torch.optim.SGD(self.parameters(), lr=lr, momentum=0.9, weight_decay=1e-4)]
+
+        warmup = True
+        warmup_epochs = 1
+        num_step = 9
+        warmup_factor = 1e-3
+        epochs = self.trainer.max_epochs
+        lr_decay_rate = 0.8
+
+        def f(x):
+            """
+             根据step数返回一个学习率倍率因子，
+             注意在训练开始之前，pytorch会提前调用一次lr_scheduler.step()方法
+             """
+            if warmup is True and x <= (warmup_epochs * num_step):
+                alpha = float(x) / (warmup_epochs * num_step)
+                # warmup过程中lr倍率因子从warmup_factor -> 1
+                return warmup_factor * (1 - alpha) + alpha
+            else:
+                # warmup后lr倍率因子从1 -> 0
+                # 参考deeplab_v2: Learning rate policy
+                return (1 - (x - warmup_epochs * num_step) / ((epochs - warmup_epochs) * num_step)) ** 0.9
+
+        def lr_scheduler_fn(epoch,lr):
+            if epoch < warmup_epochs:
+                return (epoch / warmup_epochs) * lr
+            else:
+                return lr * (lr_decay_rate ** (epoch - warmup_epochs))
+
+        schedulers = [
+            {
+                # 'scheduler': lr_scheduler.LambdaLR(optimizers[0],lr_lambda=lambda epoch: lr_scheduler_fn(epoch, lr)),
+                'scheduler': lr_scheduler.LambdaLR(optimizers[0],lr_lambda=f),
+                'interval': 'step',
+                'frequency': 1
+            }
+        ]
+
+        return optimizers, schedulers
+
+
+
     def log_images(self, batch: Tuple[Any, Any], *args, **kwargs) -> Dict:
         log = dict()
         x = self.get_input(batch, self.image_key).to(self.device)
         y = batch['label']
         # log["originals"] = x
-        out = self(x)['out']
+        out = self(x)
         out = torch.nn.functional.softmax(out,dim=1)
         predict = out.argmax(1)
 
@@ -146,11 +179,7 @@ class Res50_FCN(BaseModel):
                 y_color[mask_y, i] = color[i]
                 predict_color[mask_p, i] = color[i]
 
-
         log["image"] = x
         log["label"] = y_color
         log["predict"] = predict_color
         return log
-
-
-

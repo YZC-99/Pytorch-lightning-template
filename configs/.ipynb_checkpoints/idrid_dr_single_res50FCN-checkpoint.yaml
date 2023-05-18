@@ -1,18 +1,14 @@
 model:
     base_learning_rate: 1e-4
-    target: segment.modules.unet.UNet
+    target: segment.modules.fcn.Res50_FCN
     params:
         image_key: image
         in_channels: 3
-        num_classes: 5
-        bilinear: True
-        base_c: 64
+        num_classes: 2
         weight_decay: 1e-4
         loss:
 #            target: segment.losses.segmentation.CE_DiceLoss
             target: segment.losses.seg.dice_loss.DC_and_CE_loss
-
-
 
 
 dataset:
@@ -23,11 +19,11 @@ dataset:
         train:
             target: segment.dataloader.idrid.IDRIDSegTrain
             params:
-                size: 128
-                seg_object: multi_seg
+                size: 1024
+                seg_object: dr_single
 
         validation:
             target: segment.dataloader.idrid.IDRIDSegEval
             params:
-                size: 128
-                seg_object: multi_seg
+                size: 1024
+                seg_object: dr_single

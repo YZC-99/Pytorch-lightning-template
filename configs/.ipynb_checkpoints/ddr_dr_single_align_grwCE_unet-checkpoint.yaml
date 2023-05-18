@@ -1,4 +1,5 @@
 model:
+    base_learning_rate: 1e-4
     target: segment.modules.long_tailed.disalign.Align_UNet
     params:
         image_key: image
@@ -9,13 +10,7 @@ model:
         weight_decay: 1e-4
 
         loss:
-<<<<<<< HEAD:configs/.ipynb_checkpoints/ddr_dr_single_align_grwCE_unet-checkpoint.yaml
             target: segment.losses.long_tailed.grw_cross_entropy_loss.GRWCrossEntropyLoss
-=======
-#            target: segment.losses.segmentation.CE_DiceLoss
-#            target: segment.losses.long_tailed.grw_cross_entropy_loss.GRWCrossEntropyLoss
-            target: segment.losses.long_tailed.grw_cross_entropy_loss.Dice_GRWCrossEntropyLoss
->>>>>>> d448ca6756d5bb1aa69089a05dd1078681e5fedf:configs/ddr_dr_single_align_unet.yaml
             params:
                 class_weight: ./data/DDR/single_class_weight.txt
 
