@@ -27,6 +27,7 @@ class BaseModel(pl.LightningModule):
         self.in_channels = in_channels
         self.num_classes = num_classes
 
+
         self.color_map = {0: [0, 0, 0], 1: [128, 0, 0], 2: [0, 128, 0], 3: [128, 128, 0], 4: [0, 0, 128]}
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:

@@ -9,9 +9,10 @@ from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_
 from omegaconf import OmegaConf
 from typing import List,Tuple, Dict, Any, Optional
 
-from .base import BaseModel
+from segment.modules.fcn import Res50_FCN
+from segment.modules.unet import UNet
 
-class Res50_FCN(BaseModel):
+class FCN_Unet(Res50_FCN):
     def __init__(self,
                  image_key: str,
                  in_channels: int,
@@ -22,62 +23,41 @@ class Res50_FCN(BaseModel):
                  ckpt_path: str = None,
                  ignore_keys: list = [],
                  ):
-        super(Res50_FCN, self).__init__(
+        super(FCN_Unet, self).__init__(
                  image_key,
                  in_channels,
                  num_classes,
                  weight_decay,
                  loss,
                  scheduler,
+                 ckpt_path,
+                 ignore_keys,
         )
-        self.backbone = seg.fcn_resnet50(pretrained=True)
-        self.backbone.classifier[4] = torch.nn.Conv2d(
-            in_channels = self.backbone.classifier[4].in_channels,
-            out_channels = self.num_classes,
-            kernel_size=self.backbone.classifier[4].kernel_size,
-            stride=self.backbone.classifier[4].stride,
-            padding=self.backbone.classifier[4].padding,
-        )
-        self.backbone.aux_classifier[4] = torch.nn.Conv2d(
-            in_channels = self.backbone.aux_classifier[4].in_channels,
-            out_channels = self.num_classes,
-            kernel_size=self.backbone.aux_classifier[4].kernel_size,
-            stride=self.backbone.aux_classifier[4].stride,
-            padding=self.backbone.aux_classifier[4].padding,
-        )
+        for name, param in self.named_parameters():
+            if name == 'backbone':
+                param.requires_grad = False
 
-        if ckpt_path is not None:
-            self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys)
-
+        self.unet = UNet(in_channels=1,
+                         num_classes=self.num_classes,
+                         weight_decay=self.weight_decay,
+                         loss=self.loss)
         self.color_map = {0: [0, 0, 0], 1: [128, 0, 0], 2: [0, 128, 0], 3: [128, 128, 0], 4: [0, 0, 128]}
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        output = self.backbone(x)
+        logits = self.backbone(x)['out']
+        if self.num_classes == 2:
+            stage1_output = torch.nn.functional.sigmoid(logits)
+        else:
+            stage1_output = torch.nn.functional.softmax(logits,dim=1)
+        stage2_input = torch.argmax(stage1_output)
+        output = self.unet(stage2_input)
         return output
-    
-    def configure_optimizers(self) -> Tuple[List, List]:
-        lr = self.learning_rate
-
-        optimizers = [torch.optim.Adam(self.parameters(), lr=lr, betas=(0.9, 0.99), weight_decay=self.weight_decay)]
-
-        total_epochs = self.trainer.max_epochs
-        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizers[0], T_max=total_epochs)
-
-        schedulers = [
-            {
-                'scheduler': scheduler,
-                'interval': 'epoch',
-                'frequency': 1
-            }
-        ]
-
-        return optimizers, schedulers
 
     def training_step(self, batch: Tuple[Any, Any], batch_idx: int, optimizer_idx: int = 0) -> torch.FloatTensor:
         x = self.get_input(batch, self.image_key)
         y = batch['label']
         output = self(x)
-        loss = self.loss(output['out'], y) + 0.5 * self.loss(output['aux'], y)
+        loss = self.loss(output, y)
         self.log("train/lr", self.optimizers().param_groups[0]['lr'], prog_bar=True, logger=True, on_epoch=True)
         self.log("train/total_loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
         return loss
@@ -85,7 +65,7 @@ class Res50_FCN(BaseModel):
     def validation_step(self, batch: Tuple[Any, Any], batch_idx: int) -> Dict:
         x = self.get_input(batch, self.image_key)
         y = batch['label']
-        logits = self(x)['out']
+        logits = self(x)
 
         preds = nn.functional.softmax(logits, dim=1).argmax(1)
         y_true = y.cpu().numpy().flatten()
@@ -141,7 +121,7 @@ class Res50_FCN(BaseModel):
         x = self.get_input(batch, self.image_key).to(self.device)
         y = batch['label']
         # log["originals"] = x
-        out = self(x)['out']
+        out = self(x)
         out = torch.nn.functional.softmax(out,dim=1)
         predict = out.argmax(1)
 
