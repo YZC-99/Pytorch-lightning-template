@@ -16,7 +16,7 @@ git commit -m "Update .gitignore"
 
 
 echo "Setting up access token..."
-TOKEN="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"
+TOKEN="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"
 
 echo "Building remote repository URL..."
 REPO_URL="https://$TOKEN@github.com/YZC-99/Pytorch-lightning-template.git"
