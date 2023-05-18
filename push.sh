@@ -20,6 +20,6 @@ TOKEN="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"
 
 echo "Building remote repository URL..."
 REPO_URL="https://$TOKEN@github.com/YZC-99/Pytorch-lightning-template.git"
-git push "$REPO_URL" main
+git push "$REPO_URL" master
 
 echo "Script execution completed."
