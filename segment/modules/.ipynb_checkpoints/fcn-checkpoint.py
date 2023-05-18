@@ -58,7 +58,7 @@ class Res50_FCN(BaseModel):
         schedulers = [
             {
                 'scheduler': scheduler,
-                'interval': 'epoch',
+                'interval': 'step',
                 'frequency': 1
             }
         ]
