@@ -1,8 +1,10 @@
 import torchvision.models.segmentation as seg
 import torch
 import torch.nn as nn
+
+import numpy as np
 from torchmetrics import JaccardIndex,Dice
-from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_precision_score
+from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_precision_score,confusion_matrix
 
 from omegaconf import OmegaConf
 from typing import List,Tuple, Dict, Any, Optional
@@ -83,48 +85,49 @@ class Res50_FCN(BaseModel):
         y_true = y.cpu().numpy().flatten()
         y_pred = preds.cpu().numpy().flatten()
 
+        dice = Dice(num_classes=self.num_classes, average='macro')
+        dice = dice.to(self.device)
+        dice_score = dice(preds, y)
+
         if self.num_classes == 2:
-            task = 'binary'
             y_probs = nn.functional.softmax(logits, dim=1)[:, 1].cpu().numpy().flatten()
             precision, recall, _ = precision_recall_curve(y_true, y_probs)
             aupr = auc(recall, precision)
             roc_auc = roc_auc_score(y_true, y_pred)
             average_precision = average_precision_score(y_true, y_probs)
-        else:
-            task = 'multiclass'
-            aupr, roc_auc, average_precision = None, None, None
-
-        jaccard = JaccardIndex(num_classes=self.num_classes,task=task)
-        jaccard = jaccard.to(self.device)
-        iou = jaccard(preds,y)
-        dice = Dice(num_classes=self.num_classes,average='macro')
-        dice = dice.to(self.device)
-        dice_score = dice(preds,y)
-
-        tp = ((y_true == 1) & (y_pred == 1)).sum()
-        tn = ((y_true == 0) & (y_pred == 0)).sum()
-        fp = ((y_true == 0) & (y_pred == 1)).sum()
-        fn = ((y_true == 1) & (y_pred == 0)).sum()
-
-        eps = 1e-6
-        pr = tp / (tp + fp + eps)
-        se = tp / (tp + fn + eps)
-        sp = tn / (tn + fp + eps)
-        acc = (tp + tn) / (tp + tn + fp + fn + eps)
-
-        loss = self.loss(logits, y)
-        self.log("val/loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
-        self.log("val/iou", iou, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
-        self.log("val/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
-        self.log("val/pr", pr, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
-        self.log("val/se", se, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
-        self.log("val/sp", sp, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
-        self.log("val/acc", acc, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
-        if self.num_classes == 2:
             self.log("val/aupr", aupr, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
             self.log("val/roc_auc", roc_auc, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
             self.log("val/average_precision", average_precision, prog_bar=True, logger=True, on_step=False,
                      on_epoch=True, sync_dist=True)
+
+        # Calculate metrics for each class
+        for i in range(self.num_classes):
+            binary_y_true = (y_true == i)
+            binary_y_pred = (y_pred == i)
+
+            conf_matrix = confusion_matrix(binary_y_true, binary_y_pred)
+            # Ensure the confusion matrix is 2x2.
+            if conf_matrix.size == 1:
+                conf_matrix = conf_matrix.reshape((1, 1))
+                conf_matrix = np.pad(conf_matrix, ((0, 1), (0, 1)), 'constant')
+
+            tn, fp, fn, tp = conf_matrix.ravel()
+
+            eps = 1e-6
+            se = tp / (tp + fn + eps)
+            sp = tn / (tn + fp + eps)
+            acc = (tp + tn) / (tp + tn + fp + fn + eps)
+
+            # Log metrics
+            self.log(f"val/class_{i}/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True,
+                     sync_dist=True)
+            self.log(f"val/class_{i}/se", se, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+            self.log(f"val/class_{i}/sp", sp, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+            self.log(f"val/class_{i}/acc", acc, prog_bar=True, logger=True, on_step=False, on_epoch=True,
+                     sync_dist=True)
+
+        loss = self.loss(logits, y)
+        self.log("val/loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
         return loss
 
     def log_images(self, batch: Tuple[Any, Any], *args, **kwargs) -> Dict:
@@ -145,7 +148,6 @@ class Res50_FCN(BaseModel):
             for i in range(3):  # apply each channel individually
                 y_color[mask_y, i] = color[i]
                 predict_color[mask_p, i] = color[i]
-
 
         log["image"] = x
         log["label"] = y_color
