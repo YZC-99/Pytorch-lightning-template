@@ -213,6 +213,9 @@ class UNet(BaseUnet):
                  weight_decay: float,
                  loss: OmegaConf,
                  scheduler: Optional[OmegaConf] = None,
+                 ckpt_path: str = None,
+                 ignore_keys: list = [],
+
                  ):
         super(UNet, self).__init__(
                  image_key,
@@ -220,12 +223,16 @@ class UNet(BaseUnet):
                  num_classes,
                  weight_decay,
                  loss,
-                 scheduler,)
+                 scheduler,
+        )
         self.base_c = base_c
         self.bilinear = bilinear
         self.encoder = Unet_Encoder(in_channels,self.base_c,bilinear=True)
         self.decoder = Unet_Decoder(self.base_c,bilinear=True)
         self.out_conv = OutConv(self.base_c, num_classes)
+
+        if ckpt_path is not None:
+            self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys)
 
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:

@@ -1,30 +1,29 @@
 model:
-    base_learning_rate: 1e-4
-    target: segment.modules.fcn.Res50_FCN
+    target: segment.modules.cascaded.fcn_unet.FCN_Unet
     params:
-#        ckpt_path: ''
+#        ckpt_path:         #是stageI的ckpt
         image_key: image
         in_channels: 3
-        num_classes: 5
+        num_classes: 2
+        bilinear: True
+        base_c: 64
         weight_decay: 1e-4
         loss:
-#            target: segment.losses.segmentation.CE_DiceLoss
             target: segment.losses.seg.dice_loss.DC_and_CE_loss
-
 
 dataset:
     target: segment.dataloader.DataModuleFromConfig
     params:
-        batch_size: 2
-        num_workers: 0
+        batch_size: 4
+        num_workers: 12
         train:
             target: segment.dataloader.ddr.DDRSegTrain
             params:
-                size: 128
-                seg_object: multi_seg
+                size: 1024
+                seg_object: dr_single
 
         validation:
             target: segment.dataloader.ddr.DDRSegEval
             params:
-                size: 128
-                seg_object: multi_seg
+                size: 1024
+                seg_object: dr_single
