@@ -1,13 +1,16 @@
 model:
-    base_learning_rate: 1e-4
-    target: segment.modules.fcn.Res50_FCN
+    target: segment.modules.long_tailed.disalign.Align_Res50_FCN
     params:
         image_key: image
         in_channels: 3
         num_classes: 2
         weight_decay: 1e-4
+
         loss:
-            target: segment.losses.seg.dice_loss.DC_and_CE_loss
+            target: segment.losses.long_tailed.grw_cross_entropy_loss.GRWCrossEntropyLoss
+            params:
+                class_weight: ./data/DDR/single_class_weight.txt
+                exp_scale: 0.3
 
 
 dataset:
@@ -18,11 +21,11 @@ dataset:
         train:
             target: segment.dataloader.ddr.DDRSegTrain
             params:
-                size: 1024
+                size: 512
                 seg_object: dr_single
 
         validation:
             target: segment.dataloader.ddr.DDRSegEval
             params:
-                size: 1024
+                size: 512
                 seg_object: dr_single

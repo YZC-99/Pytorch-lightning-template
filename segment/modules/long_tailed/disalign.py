@@ -72,15 +72,6 @@ class Align_Res50_FCN(Res50_FCN):
         scores_out_tmp = confidence * (output_out * self.logit_scale + self.logit_bias)
         output_out = scores_out_tmp + (1 - confidence) * output_out
         
-        # aux
-        output_aux = output['aux']
-        confidence = self.confidence_layer(output_aux).sigmoid()
-        output_aux = self.classifier(output_aux)
-        # only adjust the foreground classification scores
-        scores_aux_tmp = confidence * (output_aux * self.logit_scale + self.logit_bias)
-        output_aux = scores_aux_tmp + (1 - confidence) * output_aux
-        
-        output['aux'] = output_aux
         output['out'] = output_out
         return output
 
