@@ -42,7 +42,8 @@ c代表当前的任务配置文件，该文件处于根目录下的congifs文件
 
 # TODO
 -[ ] 当前的学习率衰减策略会导致在第16个epoch时为0，因此需要调整
--[ ] 待实现VQGAN+Seg
+-[x] 实现VQGAN+Seg
+-[x] 实现灰度图在tensorboard中的彩色显示
 
 
 
