@@ -18,8 +18,6 @@ class FCN_Unet(Res50_FCN):
                  in_channels: int,
                  num_classes: int,
                  weight_decay: float,
-                 bilinear: bool,
-                 base_c: int,
                  loss: OmegaConf,
                  scheduler: Optional[OmegaConf] = None,
                  ckpt_path: str = None,
@@ -39,26 +37,20 @@ class FCN_Unet(Res50_FCN):
             if name == 'backbone':
                 param.requires_grad = False
 
-        self.unet = UNet(image_key=image_key,
-                         in_channels=self.num_classes,
+        self.unet = UNet(in_channels=1,
                          num_classes=self.num_classes,
                          weight_decay=self.weight_decay,
-                         bilinear = bilinear,
-                         base_c = base_c,
-                         loss=loss)
+                         loss=self.loss)
         self.color_map = {0: [0, 0, 0], 1: [128, 0, 0], 2: [0, 128, 0], 3: [128, 128, 0], 4: [0, 0, 128]}
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         logits = self.backbone(x)['out']
-#         if self.num_classes == 2:
-#             stage1_output = torch.nn.functional.sigmoid(logits)
-#         else:
-#             stage1_output = torch.nn.functional.softmax(logits,dim=1)
-#         stage2_input = torch.argmax(stage1_output,dim=1)
-#         stage2_input = torch.unsqueeze(stage2_input,dim=1)
-        
-#         output = self.unet(stage2_input.float())
-        output = self.unet(logits)
+        if self.num_classes == 2:
+            stage1_output = torch.nn.functional.sigmoid(logits)
+        else:
+            stage1_output = torch.nn.functional.softmax(logits,dim=1)
+        stage2_input = torch.argmax(stage1_output)
+        output = self.unet(stage2_input)
         return output
 
     def training_step(self, batch: Tuple[Any, Any], batch_idx: int, optimizer_idx: int = 0) -> torch.FloatTensor:
