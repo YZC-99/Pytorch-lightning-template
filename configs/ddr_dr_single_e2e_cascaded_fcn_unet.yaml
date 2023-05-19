@@ -1,8 +1,7 @@
 model:
     base_learning_rate: 1e-4
-    target: segment.modules.cascaded.fcn_unet.FCN_Unet
+    target: segment.modules.cascaded.fcn_unet.End2End_FCN_Unet
     params:
-        ckpt_path: ./experiments/ddr_dr_single_res50FCN/18052023_095027/ckpt/ddr_dr_single_res50FCN-epoch=77.ckpt        #是stageI的ckpt
         concat: False
         image_key: image
         in_channels: 3
@@ -23,15 +22,15 @@ dataset:
     target: segment.dataloader.DataModuleFromConfig
     params:
         batch_size: 4
-        num_workers: 12
+        num_workers: 0
         train:
             target: segment.dataloader.ddr.DDRSegTrain
             params:
-                size: 512
+                size: 128
                 seg_object: dr_single
 
         validation:
             target: segment.dataloader.ddr.DDRSegEval
             params:
-                size: 512
+                size: 128
                 seg_object: dr_single

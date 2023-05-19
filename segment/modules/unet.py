@@ -41,13 +41,11 @@ class BaseUnet(pl.LightningModule):
                  in_channels: int,
                  num_classes: int,
                  weight_decay: float,
-                 loss: OmegaConf,
                  scheduler: Optional[OmegaConf] = None,
                  ):
         super(BaseUnet, self).__init__()
         self.weight_decay = weight_decay
         self.image_key = image_key
-        self.loss = initialize_from_config(loss)
         self.scheduler = scheduler
         self.in_channels = in_channels
         self.num_classes = num_classes
@@ -183,7 +181,7 @@ class UNet(BaseUnet):
                  bilinear: bool,
                  base_c: int,
                  weight_decay: float,
-                 loss: OmegaConf,
+                 loss: Optional[OmegaConf] = None,
                  scheduler: Optional[OmegaConf] = None,
                  ckpt_path: str = None,
                  ignore_keys: list = [],
@@ -194,9 +192,10 @@ class UNet(BaseUnet):
                  in_channels,
                  num_classes,
                  weight_decay,
-                 loss,
                  scheduler,
         )
+        if loss is not None:
+            self.loss = initialize_from_config(loss)
         self.base_c = base_c
         self.bilinear = bilinear
         self.encoder = Unet_Encoder(in_channels,self.base_c,bilinear=True)
