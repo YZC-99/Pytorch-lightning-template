@@ -30,7 +30,7 @@ def instantiate_from_config(config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='ddr_dr_single_res50FCN')
+    parser.add_argument('-c', '--config', type=str, default='ddr_dr_single_cascaded_fcn_unet')
     parser.add_argument('-s', '--seed', type=int, default=0)
     
     parser.add_argument('-nn', '--num_nodes', type=int, default=1)
