@@ -52,7 +52,25 @@ class FCN_Unet(Res50_FCN):
         stage2_input = torch.argmax(stage1_output)
         output = self.unet(stage2_input)
         return output
+    
+    def configure_optimizers(self) -> Tuple[List, List]:
+        lr = self.learning_rate
 
+        optimizers = [torch.optim.Adam(self.parameters(), lr=lr, betas=(0.9, 0.99), weight_decay=self.weight_decay)]
+
+        total_epochs = self.trainer.max_epochs
+        scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizers[0], T_max=total_epochs)
+
+        schedulers = [
+            {
+                'scheduler': scheduler,
+                'interval': 'step',
+                'frequency': 1
+            }
+        ]
+
+        return optimizers, schedulers
+    
     def training_step(self, batch: Tuple[Any, Any], batch_idx: int, optimizer_idx: int = 0) -> torch.FloatTensor:
         x = self.get_input(batch, self.image_key)
         y = batch['label']
