@@ -37,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('-ng', '--num_gpus', type=int, default=1)
     
     parser.add_argument('-u', '--update_every', type=int, default=1)
-    parser.add_argument('-e', '--epochs', type=int, default=300)
+    parser.add_argument('-e', '--epochs', type=int, default=100)
     parser.add_argument('-a', '--use_amp', default=False, action='store_true')
     parser.add_argument('-b', '--batch_frequency', type=int, default=10000)
     parser.add_argument('-m', '--max_images', type=int, default=1)
@@ -77,3 +77,4 @@ if __name__ == '__main__':
 
     # Train
     trainer.fit(model, data)
+    os.system("/usr/bin/shutdown")

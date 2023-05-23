@@ -77,3 +77,4 @@ if __name__ == '__main__':
 
     # Train
     trainer.fit(model, data)
+    os.system("/usr/bin/shutdown")
