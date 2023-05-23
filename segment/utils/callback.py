@@ -17,6 +17,7 @@ import torchvision
 import pytorch_lightning as pl
 from pytorch_lightning.utilities.distributed import rank_zero_only
 from pytorch_lightning.callbacks import Callback
+from torchviz import make_dot
 
 
 class SetupCallback(Callback):
@@ -155,6 +156,22 @@ class ImageLogger(Callback):
                                 outputs: Generic, batch: Tuple[torch.LongTensor, torch.FloatTensor],
                                 dataloader_idx: int, batch_idx: int) -> None:
         self.log_img(pl_module, batch, batch_idx, split="val")
+
+class ModelArchitectureCallback(Callback):
+    def __init__(self, path) -> None:
+        super().__init__()
+        self.path = path
+    def on_train_start(self, trainer, pl_module):
+        if trainer.global_rank == 0:
+            # 创建一个示例输入
+            x = torch.randn(1, 3, 224, 224).float()
+            x = x.to('cuda:0')
+            # 生成模型的图形表示
+            dot = make_dot(pl_module(x), params=dict(pl_module.named_parameters()))
+
+            # 保存图形表示为PDF文件
+            dot.format = 'pdf'
+            dot.render(os.path.join(self.path,'model'))
 
 class CSVLogger(Callback):
     def __init__(self, logdir, filename):
