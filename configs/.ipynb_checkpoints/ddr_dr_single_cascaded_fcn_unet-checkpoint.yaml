@@ -2,12 +2,8 @@ model:
     base_learning_rate: 1e-4
     target: segment.modules.cascaded.fcn_unet.FCN_Unet
     params:
-<<<<<<< HEAD
-        ckpt_path: ./experiments/ddr_dr_single_align1_logits_out_res50FCN/18052023_163336/ckpt/ddr_dr_single_align1_logits_out_res50FCN-epoch=237.ckpt        #是stageI的ckpt
-=======
-        ckpt_path: ./experiments/ddr_dr_single_res50FCN/18052023_095027/ckpt/ddr_dr_single_res50FCN-epoch=77.ckpt        #是stageI的ckpt
+        ckpt_path: ./experiments/ddr_dr_single_align1_logits_out_res50FCN/23052023_105304/ckpt/ddr_dr_single_align1_logits_out_res50FCN-epoch=91.ckpt        #是stageI的ckpt
         concat: False
->>>>>>> 68ad13c36d9d842892cc19c49520c2b84c05b20a
         image_key: image
         in_channels: 3
         num_classes: 2
