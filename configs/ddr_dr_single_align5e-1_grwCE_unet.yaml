@@ -1,17 +1,19 @@
 model:
     base_learning_rate: 1e-4
-    target: segment.modules.long_tailed.disalign.Align_Res50_FCN
+    target: segment.modules.long_tailed.disalign.Align_UNet
     params:
         image_key: image
         in_channels: 3
         num_classes: 2
+        bilinear: True
+        base_c: 64
         weight_decay: 1e-4
 
         loss:
             target: segment.losses.long_tailed.grw_cross_entropy_loss.GRWCrossEntropyLoss
             params:
                 class_weight: ./data/DDR/single_class_weight.txt
-                exp_scale: 1
+                exp_scale: 0.5
 
 
 dataset:
