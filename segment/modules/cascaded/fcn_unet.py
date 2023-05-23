@@ -51,6 +51,7 @@ class FCN_Unet(Res50_FCN):
             stage1_output = torch.nn.functional.sigmoid(logits)
         else:
             stage1_output = torch.nn.functional.softmax(logits,dim=1)
+
         stage2_input = torch.argmax(stage1_output)
         output = self.unet(stage2_input)
         return output
