@@ -13,6 +13,7 @@ model:
             target: segment.losses.long_tailed.grw_cross_entropy_loss.GRWCrossEntropyLoss
             params:
                 class_weight: ./data/DDR/single_class_weight.txt
+                exp_scale: 1
 
 
 dataset:
@@ -23,11 +24,11 @@ dataset:
         train:
             target: segment.dataloader.ddr.DDRSegTrain
             params:
-                size: 768
+                size: 512
                 seg_object: dr_single
 
         validation:
             target: segment.dataloader.ddr.DDRSegEval
             params:
-                size: 768
+                size: 512
                 seg_object: dr_single

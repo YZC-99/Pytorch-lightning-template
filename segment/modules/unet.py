@@ -187,7 +187,7 @@ class BaseUnet(BaseModel):
         y_color,predict_color = self.gray2rgb(y,predict)
         log["image"] = x
         log["label"] = y_color
-        log["predict"] = predict
+        log["predict"] = predict_color
         return log
 
 
