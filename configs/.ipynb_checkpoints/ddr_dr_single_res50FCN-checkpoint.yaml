@@ -18,11 +18,11 @@ dataset:
         train:
             target: segment.dataloader.ddr.DDRSegTrain
             params:
-                size: 1024
+                size: 512
                 seg_object: dr_single
 
         validation:
             target: segment.dataloader.ddr.DDRSegEval
             params:
-                size: 1024
+                size: 512
                 seg_object: dr_single

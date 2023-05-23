@@ -6,6 +6,7 @@ import numpy as np
 from torchmetrics import JaccardIndex,Dice
 from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_precision_score,confusion_matrix
 
+from segment.utils.general import initialize_from_config
 from omegaconf import OmegaConf
 from typing import List,Tuple, Dict, Any, Optional
 
@@ -17,7 +18,7 @@ class Res50_FCN(BaseModel):
                  in_channels: int,
                  num_classes: int,
                  weight_decay: float,
-                 loss: OmegaConf,
+                 loss: Optional[OmegaConf] = None,
                  scheduler: Optional[OmegaConf] = None,
                  ckpt_path: str = None,
                  ignore_keys: list = [],
@@ -27,9 +28,10 @@ class Res50_FCN(BaseModel):
                  in_channels,
                  num_classes,
                  weight_decay,
-                 loss,
                  scheduler,
         )
+        if loss is not None:
+            self.loss = initialize_from_config(loss)
         self.backbone = seg.fcn_resnet50(pretrained=True)
         self.backbone.classifier[4] = torch.nn.Conv2d(
             in_channels = self.backbone.classifier[4].in_channels,
@@ -45,7 +47,6 @@ class Res50_FCN(BaseModel):
             stride=self.backbone.aux_classifier[4].stride,
             padding=self.backbone.aux_classifier[4].padding,
         )
-
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys)
 

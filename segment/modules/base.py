@@ -16,13 +16,11 @@ class BaseModel(pl.LightningModule):
                  in_channels: int,
                  num_classes: int,
                  weight_decay: float,
-                 loss: OmegaConf,
                  scheduler: Optional[OmegaConf] = None,
                  ):
         super(BaseModel, self).__init__()
         self.weight_decay = weight_decay
         self.image_key = image_key
-        self.loss = initialize_from_config(loss)
         self.scheduler = scheduler
         self.in_channels = in_channels
         self.num_classes = num_classes
