@@ -15,15 +15,15 @@ dataset:
     target: segment.dataloader.DataModuleFromConfig
     params:
         batch_size: 4
-        num_workers: 0
+        num_workers: 6
         train:
             target: segment.dataloader.ddr.DDRSegTrain
             params:
-                size: 128
+                size: 512
                 seg_object: dr_single
 
         validation:
             target: segment.dataloader.ddr.DDRSegEval
             params:
-                size: 128
+                size: 512
                 seg_object: dr_single
