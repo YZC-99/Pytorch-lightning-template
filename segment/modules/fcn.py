@@ -146,15 +146,7 @@ class Res50_FCN(BaseModel):
         out = torch.nn.functional.softmax(out,dim=1)
         predict = out.argmax(1)
 
-        # Convert labels and predictions to color images.
-        y_color = torch.zeros(y.size(0), 3, y.size(1), y.size(2), device=self.device)
-        predict_color = torch.zeros(predict.size(0), 3, predict.size(1), predict.size(2), device=self.device)
-        for label, color in self.color_map.items():
-            mask_y = (y == int(label))
-            mask_p = (predict == int(label))
-            for i in range(3):  # apply each channel individually
-                y_color[mask_y, i] = color[i]
-                predict_color[mask_p, i] = color[i]
+        y_color, predict_color = self.gray2rgb(y, predict)
 
         log["image"] = x
         log["label"] = y_color
