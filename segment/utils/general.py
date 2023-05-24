@@ -59,8 +59,8 @@ def setup_callbacks(exp_config: OmegaConf, config: OmegaConf) -> Tuple[List[Call
     # csv_logger = CSVLogger(str(setup_callback.logdir), 'results.csv')
     logger_img_callback = ImageLogger(exp_config.batch_frequency, exp_config.max_images)
     model_architecture_callback = ModelArchitectureCallback(path=str(setup_callback.logdir))
-    return [setup_callback, checkpoint_callback, logger_img_callback,model_architecture_callback], logger
-#     return [setup_callback, checkpoint_callback, logger_img_callback], logger
+    # return [setup_callback, checkpoint_callback, logger_img_callback,model_architecture_callback], logger
+    return [setup_callback, checkpoint_callback, logger_img_callback], logger
 
 
 def get_config_from_file(config_file: str) -> Dict:

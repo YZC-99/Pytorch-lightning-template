@@ -1,0 +1,33 @@
+model:
+    base_learning_rate: 1e-4
+    target: segment.modules.unet.UNet
+    params:
+        image_key: image
+        in_channels: 3
+        num_classes: 5
+        bilinear: True
+        base_c: 64
+        weight_decay: 1e-4
+        loss:
+            target: segment.losses.long_tailed.grw_cross_entropy_loss.GRWCrossEntropyLoss
+            params:
+                num_classes: 5
+                class_weight: ./data/DDR/class_weight.txt
+                exp_scale: 1
+
+dataset:
+    target: segment.dataloader.DataModuleFromConfig
+    params:
+        batch_size: 4
+        num_workers: 0
+        train:
+            target: segment.dataloader.ddr.DDRSegTrain
+            params:
+                size: 128
+                seg_object: multi_seg
+
+        validation:
+            target: segment.dataloader.ddr.DDRSegEval
+            params:
+                size: 128
+                seg_object: multi_seg

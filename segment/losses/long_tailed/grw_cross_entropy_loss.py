@@ -76,6 +76,7 @@ class GRWCrossEntropyLoss(nn.Module):
                  use_sigmoid=False,
                  use_mask=False,
                  reduction='mean',
+                 num_classes = 2,
                  class_weight=None,
                  loss_weight=1.0,
                  loss_name='loss_ce',
@@ -86,7 +87,7 @@ class GRWCrossEntropyLoss(nn.Module):
         self.use_mask = use_mask
         self.reduction = reduction
         self.loss_weight = loss_weight
-        self.class_weight = get_class_grw_weight(class_weight, exp_scale=exp_scale)
+        self.class_weight = get_class_grw_weight(num_classes=num_classes,class_weight=class_weight, exp_scale=exp_scale)
 
         if self.use_sigmoid:
             self.cls_criterion = binary_cross_entropy

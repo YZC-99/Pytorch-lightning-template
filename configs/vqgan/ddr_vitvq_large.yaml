@@ -1,0 +1,43 @@
+model:
+    target: segment.modules.vqgan.vitvqgan.ViTVQ
+    params:
+        image_key: image
+        image_size: 256
+        patch_size: 16
+        encoder:
+            dim: 512
+            depth: 6
+            heads: 8
+            mlp_dim: 2048
+        decoder:
+            dim: 1280
+            depth: 12
+            heads: 16
+            mlp_dim: 5120
+        quantizer:
+            embed_dim: 256
+            n_embed: 4096
+        loss:
+            target: segment.losses.uvim.vqperceptual.VQLPIPSWithDiscriminator
+            params:
+                loglaplace_weight: 0.0
+                loggaussian_weight: 1.0
+                perceptual_weight: 0.1
+                adversarial_weight: 0.1
+
+dataset:
+    target: segment.dataloader.DataModuleFromConfig
+    params:
+        batch_size: 4
+        num_workers: 0
+        train:
+            target: segment.dataloader.ddr.DDRSegTrain
+            params:
+                size: 128
+                seg_object: dr_single
+
+        validation:
+            target: segment.dataloader.ddr.DDRSegEval
+            params:
+                size: 128
+                seg_object: dr_single
