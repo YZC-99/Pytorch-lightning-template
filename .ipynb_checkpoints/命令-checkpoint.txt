@@ -1,8 +1,0 @@
-# 在第一个终端中运行 main1.py，将任务部署在 GPU 0 上
-CUDA_VISIBLE_DEVICES=0 python main1.py
-
-# 在第二个终端中运行 main2.py，将任务部署在 GPU 1 上
-CUDA_VISIBLE_DEVICES=1 python main2.py
-
-# 在第三个终端中运行 main3.py，将任务部署在 GPU 2 上
-CUDA_VISIBLE_DEVICES=2 python main3.py

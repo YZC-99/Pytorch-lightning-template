@@ -19,6 +19,8 @@ class FCN_Unet(Res50_FCN):
                  num_classes: int,
                  weight_decay: float,
                  loss: OmegaConf,
+                 bilinear: bool = True,
+                 base_c: int = 64,
                  scheduler: Optional[OmegaConf] = None,
                  ckpt_path: str = None,
                  ignore_keys: list = [],
@@ -35,26 +37,31 @@ class FCN_Unet(Res50_FCN):
                  ignore_keys,
         )
         self.concat = concat
+        stage2_input_channels = self.num_classes + in_channels if self.concat else self.num_classes
+
         for name, param in self.named_parameters():
             if name == 'backbone':
                 param.requires_grad = False
 
-        self.unet = UNet(in_channels=1,
+        self.unet = UNet(
+                         image_key,
+                         in_channels=stage2_input_channels,
+                         bilinear = bilinear,
+                         base_c = base_c,
                          num_classes=self.num_classes,
                          weight_decay=self.weight_decay,
-                         loss=self.loss)
+                         )
         self.color_map = {0: [0, 0, 0], 1: [128, 0, 0], 2: [0, 128, 0], 3: [128, 128, 0], 4: [0, 0, 128]}
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
-        logits = self.backbone(x)['out']
-        if self.num_classes == 2:
-            stage1_output = torch.nn.functional.sigmoid(logits)
-        else:
-            stage1_output = torch.nn.functional.softmax(logits,dim=1)
-
-        stage2_input = torch.argmax(stage1_output)
-        output = self.unet(stage2_input)
-        return output
+        out = self.backbone(x)
+        stage1_out = out['out']
+        if self.concat:
+            stage2_input = torch.concat((x,stage1_out),dim=1)
+        else :
+            stage2_input = stage1_out
+        logits = self.unet(stage2_input)
+        return logits
     
     def configure_optimizers(self) -> Tuple[List, List]:
         lr = self.learning_rate

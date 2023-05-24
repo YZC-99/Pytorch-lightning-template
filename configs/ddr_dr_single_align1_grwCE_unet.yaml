@@ -20,7 +20,7 @@ dataset:
     target: segment.dataloader.DataModuleFromConfig
     params:
         batch_size: 4
-        num_workers: 12
+        num_workers: 6
         train:
             target: segment.dataloader.ddr.DDRSegTrain
             params:

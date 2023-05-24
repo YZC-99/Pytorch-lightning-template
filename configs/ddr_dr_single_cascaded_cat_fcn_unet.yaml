@@ -1,33 +1,31 @@
 model:
     base_learning_rate: 1e-4
-    target: segment.modules.long_tailed.disalign.Align_UNet
+    target: segment.modules.cascaded.fcn_unet.FCN_Unet
     params:
+        ckpt_path: ./experiments/ddr_dr_single_align1_logits_out_res50FCN/23052023_105304/ckpt/ddr_dr_single_align1_logits_out_res50FCN-epoch=91.ckpt        #是stageI的ckpt
+        concat: True
         image_key: image
         in_channels: 3
         num_classes: 2
         bilinear: True
         base_c: 64
         weight_decay: 1e-4
-
         loss:
-            target: segment.losses.long_tailed.grw_cross_entropy_loss.GRWCrossEntropyLoss
-            params:
-                class_weight: ./data/DDR/single_class_weight.txt
-
+            target: segment.losses.seg.dice_loss.DC_and_CE_loss
 
 dataset:
     target: segment.dataloader.DataModuleFromConfig
     params:
         batch_size: 4
-        num_workers: 12
+        num_workers: 7
         train:
             target: segment.dataloader.ddr.DDRSegTrain
             params:
-                size: 768
+                size: 384
                 seg_object: dr_single
 
         validation:
             target: segment.dataloader.ddr.DDRSegEval
             params:
-                size: 768
+                size: 384
                 seg_object: dr_single
