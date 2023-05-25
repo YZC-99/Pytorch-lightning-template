@@ -82,7 +82,7 @@ class SegmentationBase(Dataset):
                     T.Normalize(mean=mean, std=std),])
         else:
             self.transforms = T.Compose([
-                                         T.Resize(1024),
+                                         T.Resize(crop_size),
                                          T.ToTensor(),
                                          # T.CenterCrop(1024),
                                          T.Normalize(mean=mean, std=std),
