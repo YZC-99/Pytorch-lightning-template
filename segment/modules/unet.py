@@ -109,6 +109,10 @@ class BaseUnet(BaseModel):
         y_true = y.cpu().numpy().flatten()
         y_pred = preds.cpu().numpy().flatten()
 
+        jaccard = JaccardIndex(num_classes=self.num_classes,task='multiclass' if self.num_classes > 2 else 'binary')
+        jaccard = jaccard.to(self.device)
+        iou = jaccard(preds, y)
+
         dice = Dice(num_classes=self.num_classes, average='macro')
         dice = dice.to(self.device)
         dice_score = dice(preds, y)
@@ -165,6 +169,7 @@ class BaseUnet(BaseModel):
             self.log(f"val/class_{i}/acc", acc, prog_bar=True, logger=True, on_step=False, on_epoch=True,
                      sync_dist=True)
 
+        self.log("val/iou", iou, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
         loss = self.loss(logits, y)
         self.log("val/loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
         return loss
