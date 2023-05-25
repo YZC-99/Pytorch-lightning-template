@@ -1,0 +1,29 @@
+model:
+    base_learning_rate: 1e-4
+    target: segment.modules.unet.UNet
+    params:
+        image_key: image
+        in_channels: 3
+        num_classes: 3
+        bilinear: True
+        base_c: 64
+        weight_decay: 1e-4
+        loss:
+            target: segment.losses.seg.dice_loss.DC_and_CE_loss
+
+dataset:
+    target: segment.dataloader.DataModuleFromConfig
+    params:
+        batch_size: 4
+        num_workers: 0
+        train:
+            target: segment.dataloader.refuge.REFUGESegTrain
+            params:
+                size: 128
+                seg_object: od_oc
+
+        validation:
+            target: segment.dataloader.refuge.REFUGESegEval
+            params:
+                size: 128
+                seg_object: od_oc
