@@ -7,7 +7,7 @@ from segment.utils.general import initialize_from_config
 import pytorch_lightning as pl
 
 from torchmetrics import JaccardIndex,Dice
-from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_precision_score,confusion_matrix
+from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_precision_score,confusion_matrix,classification_report
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -141,6 +141,21 @@ class BaseUnet(BaseModel):
             se = tp / (tp + fn + eps)
             sp = tn / (tn + fp + eps)
             acc = (tp + tn) / (tp + tn + fp + fn + eps)
+
+            # 计算AUC_PR、AUC_ROC
+            y_probs = nn.functional.softmax(logits, dim=1).cpu().numpy()
+            y_true_i = (y_true == i)
+            y_probs_i = y_probs[:, i].flatten()
+
+            if len(np.unique(y_true_i)) > 1:
+                precision, recall, _ = precision_recall_curve(y_true_i, y_probs_i)
+                auc_pr_i = auc(recall, precision)
+                auc_roc_i = roc_auc_score(y_true_i, y_probs_i)
+                self.log(f"val/class_{i}/auc_pr", auc_pr_i, prog_bar=True, logger=True, on_step=False,
+                         on_epoch=True, sync_dist=True)
+                self.log(f"val/class_{i}/auc_roc", auc_roc_i, prog_bar=True, logger=True, on_step=False,
+                         on_epoch=True, sync_dist=True)
+
 
             # Log metrics
             self.log(f"val/class_{i}/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True,
