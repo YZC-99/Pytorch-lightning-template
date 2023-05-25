@@ -93,7 +93,7 @@ class Res50_FCN(BaseModel):
         y_true = y.cpu().numpy().flatten()
         y_pred = preds.cpu().numpy().flatten()
 
-        jaccard = JaccardIndex(num_classes=self.num_classes,task='binary')
+        jaccard = JaccardIndex(num_classes=self.num_classes,task='binary' if self.num_classes ==  2 else 'multiclass')
         jaccard = jaccard.to(self.device)
         iou = jaccard(preds, y)
 
