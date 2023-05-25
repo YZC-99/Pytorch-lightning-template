@@ -11,12 +11,12 @@ from . import transforms as T
 def preprocess_mask(img,label_type):
     mask = np.zeros_like(img)
     if label_type == 'od':
-        mask[img == 150] = 1
+        mask[img == 128] = 1
         mask[img == 0] = 1
     elif label_type == 'oc':
         mask[img == 0] = 1
     elif label_type == 'od_oc':
-        mask[img == 150] = 1
+        mask[img == 128] = 1
         mask[img == 0] = 2
     return mask
 
@@ -52,8 +52,8 @@ class SegmentationBase(Dataset):
         crop_size = size
         min_size = int(0.5 * base_size)
         max_size = int(1.2 * base_size)
-        mean = (0.318, 0.199, 0.0831)
-        std = (0.2991, 0.191, 0.0851)
+        mean = (0.28179467, 0.16782693, 0.08382585)
+        std = (0.17760678, 0.10207705, 0.05228512)
         # ==================
         if self.train:
             self.transforms = T.Compose([
