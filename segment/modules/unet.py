@@ -181,7 +181,7 @@ class BaseUnet(BaseModel):
             self.log(f"val/class_{i}/acc", acc, prog_bar=True, logger=True, on_step=False, on_epoch=True,
                      sync_dist=True)
 
-        self.log(f"val/class_{i}/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True,
+        self.log(f"val/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True,
                  sync_dist=True)
         self.log("val/iou", iou, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
         loss = self.loss(logits, y)
