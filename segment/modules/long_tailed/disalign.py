@@ -117,7 +117,7 @@ class Align_UNet(UNet):
         # only adjust the foreground classification scores
         scores_tmp = confidence * (output * self.logit_scale + self.logit_bias)
         output = scores_tmp + (1 - confidence) * output
-        return output
+        return {'out':output}
 
 
 

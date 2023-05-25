@@ -89,10 +89,11 @@ class Res50_FCN(BaseModel):
         logits = self(x)['out']
 
         preds = nn.functional.softmax(logits, dim=1).argmax(1)
+
         y_true = y.cpu().numpy().flatten()
         y_pred = preds.cpu().numpy().flatten()
 
-        jaccard = JaccardIndex(num_classes=self.num_classes,task='multiclass' if self.num_classes > 2 else 'binary')
+        jaccard = JaccardIndex(num_classes=self.num_classes,task='binary')
         jaccard = jaccard.to(self.device)
         iou = jaccard(preds, y)
 
@@ -115,6 +116,16 @@ class Res50_FCN(BaseModel):
         for i in range(self.num_classes):
             binary_y_true = (y_true == i)
             binary_y_pred = (y_pred == i)
+
+            # 计算dice、iou
+            jaccard_i = JaccardIndex(num_classes=2, task='binary')
+            # jaccard_i = jaccard_i.to(self.device)
+            iou_i = jaccard_i(torch.from_numpy(binary_y_pred), torch.from_numpy(binary_y_true))
+
+            dice_i = Dice(num_classes=2, average='macro')
+            # dice_i = dice_i.to(self.device)
+            dice_score_i = dice_i(torch.from_numpy(binary_y_pred), torch.from_numpy(binary_y_true))
+
 
             conf_matrix = confusion_matrix(binary_y_true, binary_y_pred)
             # Ensure the confusion matrix is 2x2.
@@ -143,14 +154,18 @@ class Res50_FCN(BaseModel):
                 self.log(f"val/class_{i}/auc_roc", auc_roc_i, prog_bar=True, logger=True, on_step=False,
                          on_epoch=True, sync_dist=True)
 
+
             # Log metrics
-            self.log(f"val/class_{i}/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True,
-                     sync_dist=True)
+
+            self.log(f"val/class_{i}/iou", iou_i, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+            self.log(f"val/class_{i}/dice", dice_score_i, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
             self.log(f"val/class_{i}/se", se, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
             self.log(f"val/class_{i}/sp", sp, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
             self.log(f"val/class_{i}/acc", acc, prog_bar=True, logger=True, on_step=False, on_epoch=True,
                      sync_dist=True)
 
+        self.log(f"val/class_{i}/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True,
+                 sync_dist=True)
         self.log("val/iou", iou, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
         loss = self.loss(logits, y)
         self.log("val/loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)

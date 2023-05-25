@@ -58,7 +58,7 @@ class BaseUnet(BaseModel):
         x_dict = self.encoder(x)
         x = self.decoder(x_dict)
         logits = self.out_conv(x)
-        return logits
+        return {'out':logits}
 
     def gray2rgb(self,y,predict):
         # Convert labels and predictions to color images.
@@ -94,7 +94,7 @@ class BaseUnet(BaseModel):
     def training_step(self, batch: Tuple[Any, Any], batch_idx: int, optimizer_idx: int = 0) -> torch.FloatTensor:
         x = self.get_input(batch, self.image_key)
         y = batch['label']
-        logits = self(x)
+        logits = self(x)['out']
         loss = self.loss(logits, y)
         self.log("train/lr", self.optimizers().param_groups[0]['lr'], prog_bar=True, logger=True, on_epoch=True)
         self.log("train/total_loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
@@ -103,13 +103,14 @@ class BaseUnet(BaseModel):
     def validation_step(self, batch: Tuple[Any, Any], batch_idx: int) -> Dict:
         x = self.get_input(batch, self.image_key)
         y = batch['label']
-        logits = self(x)
+        logits = self(x)['out']
 
         preds = nn.functional.softmax(logits, dim=1).argmax(1)
+
         y_true = y.cpu().numpy().flatten()
         y_pred = preds.cpu().numpy().flatten()
 
-        jaccard = JaccardIndex(num_classes=self.num_classes,task='multiclass' if self.num_classes > 2 else 'binary')
+        jaccard = JaccardIndex(num_classes=self.num_classes,task='binary')
         jaccard = jaccard.to(self.device)
         iou = jaccard(preds, y)
 
@@ -132,6 +133,16 @@ class BaseUnet(BaseModel):
         for i in range(self.num_classes):
             binary_y_true = (y_true == i)
             binary_y_pred = (y_pred == i)
+
+            # 计算dice、iou
+            jaccard_i = JaccardIndex(num_classes=2, task='binary')
+            # jaccard_i = jaccard_i.to(self.device)
+            iou_i = jaccard_i(torch.from_numpy(binary_y_pred), torch.from_numpy(binary_y_true))
+
+            dice_i = Dice(num_classes=2, average='macro')
+            # dice_i = dice_i.to(self.device)
+            dice_score_i = dice_i(torch.from_numpy(binary_y_pred), torch.from_numpy(binary_y_true))
+
 
             conf_matrix = confusion_matrix(binary_y_true, binary_y_pred)
             # Ensure the confusion matrix is 2x2.
@@ -162,13 +173,16 @@ class BaseUnet(BaseModel):
 
 
             # Log metrics
-            self.log(f"val/class_{i}/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True,
-                     sync_dist=True)
+
+            self.log(f"val/class_{i}/iou", iou_i, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+            self.log(f"val/class_{i}/dice", dice_score_i, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
             self.log(f"val/class_{i}/se", se, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
             self.log(f"val/class_{i}/sp", sp, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
             self.log(f"val/class_{i}/acc", acc, prog_bar=True, logger=True, on_step=False, on_epoch=True,
                      sync_dist=True)
 
+        self.log(f"val/class_{i}/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True,
+                 sync_dist=True)
         self.log("val/iou", iou, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
         loss = self.loss(logits, y)
         self.log("val/loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
@@ -200,7 +214,7 @@ class BaseUnet(BaseModel):
         x = self.get_input(batch, self.image_key).to(self.device)
         y = batch['label']
         # log["originals"] = x
-        out = self(x)
+        out = self(x)['out']
         out = torch.nn.functional.softmax(out,dim=1)
         predict = out.argmax(1)
 
@@ -248,7 +262,7 @@ class UNet(BaseUnet):
         x_dict = self.encoder(x)
         x = self.decoder(x_dict)
         logits = self.out_conv(x)
-        return logits
+        return {'out':logits}
 
 
 
