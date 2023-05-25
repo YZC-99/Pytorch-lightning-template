@@ -161,7 +161,6 @@ class Res50_FCN(BaseModel):
         predict = out.argmax(1)
 
         y_color, predict_color = self.gray2rgb(y, predict)
-
         log["image"] = x
         log["label"] = y_color
         log["predict"] = predict_color
