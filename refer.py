@@ -30,16 +30,16 @@ def instantiate_from_config(config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='refuge/refuge_od_align3e-1_grwCE_Dice_unet')
+    parser.add_argument('-c', '--config', type=str, default='refuge_pretrained/refuge_od_unet_for_refuge')
     parser.add_argument('-s', '--seed', type=int, default=0)
-    
+
     parser.add_argument('-nn', '--num_nodes', type=int, default=1)
     parser.add_argument('-ng', '--num_gpus', type=int, default=1)
-    
+
     parser.add_argument('-u', '--update_every', type=int, default=1)
     parser.add_argument('-e', '--epochs', type=int, default=100)
     parser.add_argument('-a', '--use_amp', default=False, action='store_true')
-    parser.add_argument('-b', '--batch_frequency', type=int, default=10000)
+    parser.add_argument('-b', '--batch_frequency', type=int, default=1)
     parser.add_argument('-m', '--max_images', type=int, default=1)
     parser.add_argument('--limit_val_batches', type=int, default=1)
     args = parser.parse_args()
@@ -48,7 +48,7 @@ if __name__ == '__main__':
     pl.seed_everything(args.seed)
 
     # Load configuration
-    config = get_config_from_file(Path("configs")/(args.config+".yaml"))
+    config = get_config_from_file(Path("refer")/(args.config+".yaml"))
     exp_config = OmegaConf.create({"name": args.config, "epochs": args.epochs, "update_every": args.update_every,
                                     "use_amp": args.use_amp, "batch_frequency": args.batch_frequency,
                                    "max_images": args.max_images})
@@ -63,8 +63,8 @@ if __name__ == '__main__':
     # Build data modules
     data = initialize_from_config(config.dataset)
     data.prepare_data()
-    
-    
+
+
     # Build trainer
     trainer = pl.Trainer(max_epochs=exp_config.epochs,
                          precision=16 if exp_config.use_amp else 32,
@@ -75,6 +75,5 @@ if __name__ == '__main__':
                          accumulate_grad_batches=exp_config.update_every,
                          logger=logger)
 
-    # Train
-    trainer.fit(model, data)
-#     os.system("/usr/bin/shutdown")
+    # test
+    trainer.test(model, data)

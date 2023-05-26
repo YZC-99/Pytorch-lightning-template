@@ -188,6 +188,88 @@ class BaseUnet(BaseModel):
         self.log("val/loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
         return loss
 
+    def test_step(self, batch: Tuple[Any, Any], batch_idx: int) -> Dict:
+        x = self.get_input(batch, self.image_key)
+        y = batch['label']
+        logits = self(x)['out']
+
+        preds = nn.functional.softmax(logits, dim=1).argmax(1)
+
+        y_true = y.cpu().numpy().flatten()
+        y_pred = preds.cpu().numpy().flatten()
+
+        jaccard = JaccardIndex(num_classes=self.num_classes, task='binary' if self.num_classes == 2 else 'multiclass')
+        jaccard = jaccard.to(self.device)
+        iou = jaccard(preds, y)
+
+        dice = Dice(num_classes=self.num_classes, average='macro')
+        dice = dice.to(self.device)
+        dice_score = dice(preds, y)
+
+        if self.num_classes == 2:
+            y_probs = nn.functional.softmax(logits, dim=1)[:, 1].cpu().numpy().flatten()
+            precision, recall, _ = precision_recall_curve(y_true, y_probs)
+            aupr = auc(recall, precision)
+            roc_auc = roc_auc_score(y_true, y_pred)
+            average_precision = average_precision_score(y_true, y_probs)
+            self.log("test/aupr", aupr, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+            self.log("test/roc_auc", roc_auc, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+            self.log("test/average_precision", average_precision, prog_bar=True, logger=True, on_step=False,
+                     on_epoch=True, sync_dist=True)
+
+        # Calculate metrics for each class
+        for i in range(self.num_classes):
+            binary_y_true = (y_true == i)
+            binary_y_pred = (y_pred == i)
+
+            # 计算dice、iou
+            jaccard_i = JaccardIndex(num_classes=2, task='binary')
+            # jaccard_i = jaccard_i.to(self.device)
+            iou_i = jaccard_i(torch.from_numpy(binary_y_pred), torch.from_numpy(binary_y_true))
+
+            dice_i = Dice(num_classes=2, average='macro')
+            # dice_i = dice_i.to(self.device)
+            dice_score_i = dice_i(torch.from_numpy(binary_y_pred), torch.from_numpy(binary_y_true))
+
+            conf_matrix = confusion_matrix(binary_y_true, binary_y_pred)
+            # Ensure the confusion matrix is 2x2.
+            if conf_matrix.size == 1:
+                conf_matrix = conf_matrix.reshape((1, 1))
+                conf_matrix = np.pad(conf_matrix, ((0, 1), (0, 1)), 'constant')
+
+            tn, fp, fn, tp = conf_matrix.ravel()
+
+            eps = 1e-6
+            se = tp / (tp + fn + eps)
+            sp = tn / (tn + fp + eps)
+            acc = (tp + tn) / (tp + tn + fp + fn + eps)
+
+            # 计算AUC_PR、AUC_ROC
+            y_probs = nn.functional.softmax(logits, dim=1).cpu().numpy()
+            y_true_i = (y_true == i)
+            y_probs_i = y_probs[:, i].flatten()
+
+            if len(np.unique(y_true_i)) > 1:
+                precision, recall, _ = precision_recall_curve(y_true_i, y_probs_i)
+                auc_pr_i = auc(recall, precision)
+                auc_roc_i = roc_auc_score(y_true_i, y_probs_i)
+                self.log(f"test/class_{i}/auc_pr", auc_pr_i, prog_bar=True, logger=True, on_step=False,
+                         on_epoch=True, sync_dist=True)
+                self.log(f"test/class_{i}/auc_roc", auc_roc_i, prog_bar=True, logger=True, on_step=False,
+                         on_epoch=True, sync_dist=True)
+
+                # Log metrics
+            self.log(f"test/class_{i}/iou", iou_i, prog_bar=True, logger=True, on_step=False, on_epoch=True,
+                     sync_dist=True)
+            self.log(f"test/class_{i}/dice", dice_score_i, prog_bar=True, logger=True, on_step=False, on_epoch=True,
+                     sync_dist=True)
+            self.log(f"test/class_{i}/se", se, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+            self.log(f"test/class_{i}/sp", sp, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
+            self.log(f"test/class_{i}/acc", acc, prog_bar=True, logger=True, on_step=False, on_epoch=True,
+                     sync_dist=True)
+        self.log(f"test/dice_score", dice_score, prog_bar=True, logger=True, on_step=False, on_epoch=True,
+                 sync_dist=True)
+        self.log("test/iou", iou, prog_bar=True, logger=True, on_step=False, on_epoch=True, sync_dist=True)
 
 
     def configure_optimizers(self) -> Tuple[List, List]:
@@ -208,13 +290,13 @@ class BaseUnet(BaseModel):
         return optimizers, schedulers
 
 
-
     def log_images(self, batch: Tuple[Any, Any], *args, **kwargs) -> Dict:
         log = dict()
         x = self.get_input(batch, self.image_key).to(self.device)
         y = batch['label']
         # log["originals"] = x
         out = self(x)['out']
+
         out = torch.nn.functional.softmax(out,dim=1)
         predict = out.argmax(1)
 

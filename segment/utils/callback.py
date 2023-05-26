@@ -157,6 +157,11 @@ class ImageLogger(Callback):
                                 dataloader_idx: int, batch_idx: int) -> None:
         self.log_img(pl_module, batch, batch_idx, split="val")
 
+    def on_test_batch_end(self, trainer: pl.trainer.Trainer, pl_module: pl.LightningModule,
+                                outputs: Generic, batch: Tuple[torch.LongTensor, torch.FloatTensor],
+                                dataloader_idx: int, batch_idx: int) -> None:
+        self.log_img(pl_module, batch, batch_idx, split="test")
+
 class ModelArchitectureCallback(Callback):
     def __init__(self, path) -> None:
         super().__init__()

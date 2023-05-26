@@ -143,22 +143,27 @@ class Dice_GRWCrossEntropyLoss(GRWCrossEntropyLoss):
                  use_sigmoid=False,
                  use_mask=False,
                  reduction='mean',
+                 num_classes = 2,
                  class_weight=None,
                  loss_weight=1.0,
                  loss_name='loss_ce',
-                 exp_scale=1
-                 ):
-        super(Dice_GRWCrossEntropyLoss, self).__init__(
-            use_sigmoid,
-            use_mask,
-            reduction,
-            class_weight,
-            loss_weight,
-            loss_name,
-            exp_scale
-        )
-
+                 exp_scale=1):
+        super(GRWCrossEntropyLoss, self).__init__()
+        assert (use_sigmoid is False) or (use_mask is False)
+        self.use_sigmoid = use_sigmoid
+        self.use_mask = use_mask
+        self.reduction = reduction
+        self.loss_weight = loss_weight
+        self.class_weight = get_class_grw_weight(num_classes=num_classes,class_weight=class_weight, exp_scale=exp_scale)
         self.dc = SoftDiceLoss(apply_nonlin=softmax_helper)
+
+        if self.use_sigmoid:
+            self.cls_criterion = binary_cross_entropy
+        elif self.use_mask:
+            self.cls_criterion = mask_cross_entropy
+        else:
+            self.cls_criterion = cross_entropy
+        self._loss_name = loss_name
 
     def forward(self,
                 cls_score,
@@ -176,9 +181,12 @@ class Dice_GRWCrossEntropyLoss(GRWCrossEntropyLoss):
         else:
             class_weight = None
         loss_cls = self.loss_weight * nn.functional.cross_entropy(cls_score,label,weight=class_weight)
-
         dc_loss = self.dc(cls_score, label)
-
         return loss_cls + 1 + dc_loss
+
+    @property
+    def loss_name(self):
+        return self._loss_name
+
 
 

@@ -7,7 +7,6 @@ import random
 from PIL import Image
 from torch.utils.data import Dataset
 from . import transforms as T
-import torchvision.transforms as transforms
 
 def preprocess_mask(img,label_type):
     mask = np.zeros_like(img)
@@ -42,7 +41,7 @@ class SegmentationBase(Dataset):
             "relative_file_path_": [l for l in self.image_paths],
             "file_path_": [os.path.join(self.data_root, l)
                            for l in self.image_paths],
-            "segmentation_path_": [os.path.join(self.segmentation_root, l).replace(".jpg", '.bmp')
+            "segmentation_path_": [os.path.join(self.segmentation_root, l).replace(".jpg", '.png')
                                    for l in self.image_paths]
         }
         self.train = train
@@ -75,10 +74,7 @@ class SegmentationBase(Dataset):
                                          T.Normalize(mean=mean, std=std),
         ])
 
-        self.org_transforms = T.Compose([
-                                         T.Resize(crop_size),
-                                         T.ToTensor(),
-        ])
+
     def __len__(self):
         return self._length
 
@@ -87,10 +83,6 @@ class SegmentationBase(Dataset):
         image = Image.open(example["file_path_"])
         if not image.mode == "RGB":
             image = image.convert("RGB")
-
-        image_tensor,_ = self.org_transforms(image,image)
-        example["original_image"] = image_tensor
-
         segmentation = Image.open(example["segmentation_path_"])
         if not segmentation.mode == "L":
             segmentation = segmentation.convert("L")
@@ -101,34 +93,25 @@ class SegmentationBase(Dataset):
         segmentation = Image.fromarray(segmentation)
 
         img, mask = self.transforms(image, segmentation)
-
         example["image"] = img
         example["label"] = mask
         return example
 
 
-class REFUGESegTrain(SegmentationBase):
+class GAMMASegTrain(SegmentationBase):
     def __init__(self, size=None, train=True,seg_object='od', interpolation="bicubic"):
-        super().__init__(data_csv='F:/DL-Data/eyes/OD_OC/REFUGE/refuge_train.txt',
-                         data_root='F:/DL-Data/eyes/OD_OC/REFUGE/images',
-                         segmentation_root='F:/DL-Data/eyes/OD_OC/REFUGE/ground_truths',
+        super().__init__(data_csv='F:/DL-Data/eyes/OD_OC/GAMMA/gamma_all.txt',
+                         data_root='F:/DL-Data/eyes/OD_OC/GAMMA/images',
+                         segmentation_root='F:/DL-Data/eyes/OD_OC/GAMMA/ground_truths',
                          size=size, interpolation=interpolation, train=train,
                          n_labels=2,seg_object=seg_object)
 
 
-class REFUGESegEval(SegmentationBase):
+class GAMMASegEval(SegmentationBase):
     def __init__(self, size=None, train=False,seg_object='od', interpolation="bicubic"):
-        super().__init__(data_csv='F:/DL-Data/eyes/OD_OC/REFUGE/refuge_eval.txt',
-                         data_root='F:/DL-Data/eyes/OD_OC/REFUGE/images',
-                         segmentation_root='F:/DL-Data/eyes/OD_OC/REFUGE/ground_truths',
-                         size=size, interpolation=interpolation, train=train,
-                         n_labels=2,seg_object=seg_object)
-
-class REFUGESegTest(SegmentationBase):
-    def __init__(self, size=None, train=False,seg_object='od', interpolation="bicubic"):
-        super().__init__(data_csv='F:/DL-Data/eyes/OD_OC/REFUGE/refuge_eval.txt',
-                         data_root='F:/DL-Data/eyes/OD_OC/REFUGE/images',
-                         segmentation_root='F:/DL-Data/eyes/OD_OC/REFUGE/ground_truths',
+        super().__init__(data_csv='F:/DL-Data/eyes/OD_OC/GAMMA/gamma_all.txt',
+                         data_root='F:/DL-Data/eyes/OD_OC/GAMMA/images',
+                         segmentation_root='F:/DL-Data/eyes/OD_OC/GAMMA/ground_truths',
                          size=size, interpolation=interpolation, train=train,
                          n_labels=2,seg_object=seg_object)
 

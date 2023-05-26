@@ -1,0 +1,34 @@
+model:
+    base_learning_rate: 1e-4
+    target: segment.modules.long_tailed.disalign.Align_UNet
+    params:
+        image_key: image
+        in_channels: 3
+        num_classes: 2
+        bilinear: True
+        base_c: 64
+        weight_decay: 1e-4
+
+        loss:
+            target: segment.losses.long_tailed.grw_cross_entropy_loss.Dice_GRWCrossEntropyLoss
+            params:
+                class_weight: ./data/REFUGE/od_class_weight.txt
+                exp_scale: 0.3
+
+
+dataset:
+    target: segment.dataloader.DataModuleFromConfig
+    params:
+        batch_size: 4
+        num_workers: 0
+        train:
+            target: segment.dataloader.refuge.REFUGESegTrain
+            params:
+                size: 128
+                seg_object: od
+
+        validation:
+            target: segment.dataloader.refuge.REFUGESegEval
+            params:
+                size: 128
+                seg_object: od
