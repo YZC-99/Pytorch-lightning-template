@@ -1,0 +1,24 @@
+model:
+    base_learning_rate: 1e-4
+    target: classification.modules.resnet.Resnet50
+    params:
+        image_key: image
+        num_classes: 6
+        weight_decay: 1e-4
+#        loss:
+#            target: segment.losses.seg.dice_loss.DC_and_CE_loss
+
+dataset:
+    target: classification.dataloader.DataModuleFromConfig
+    params:
+        batch_size: 4
+        num_workers: 0
+        train:
+            target: classification.dataloader.ddr.DDRGradTrain
+            params:
+                size: 128
+
+        validation:
+            target: classification.dataloader.ddr.DDRGradEval
+            params:
+                size: 128

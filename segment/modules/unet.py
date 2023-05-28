@@ -1,11 +1,13 @@
 import torch
 import torch.nn as nn
 
+from torchcam.methods import SmoothGradCAMpp
+from torchcam.utils import overlay_mask
 from typing import List,Tuple, Dict, Any, Optional
 from omegaconf import OmegaConf
 from segment.utils.general import initialize_from_config
 import pytorch_lightning as pl
-
+from torchvision.transforms.functional import to_pil_image
 from torchmetrics import JaccardIndex,Dice
 from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_precision_score,confusion_matrix,classification_report
 
@@ -289,6 +291,12 @@ class BaseUnet(BaseModel):
         ]
         return optimizers, schedulers
 
+    def get_cam(self,img,out):
+        # self.eval()
+        cam_extractor = SmoothGradCAMpp(self)
+        activation_map = cam_extractor(out.squeeze(0).argmax().item(), out)
+        result = overlay_mask(to_pil_image(img), to_pil_image(activation_map[0].squeeze(0), mode='F'), alpha=0.5)
+        return activation_map,result
 
     def log_images(self, batch: Tuple[Any, Any], *args, **kwargs) -> Dict:
         log = dict()
@@ -296,6 +304,7 @@ class BaseUnet(BaseModel):
         y = batch['label']
         # log["originals"] = x
         out = self(x)['out']
+        # cam,overcam = self.get_cam(x,out)
 
         out = torch.nn.functional.softmax(out,dim=1)
         predict = out.argmax(1)
@@ -304,6 +313,8 @@ class BaseUnet(BaseModel):
         log["image"] = x
         log["label"] = y_color
         log["predict"] = predict_color
+        log["cam"] = cam
+        log["overcam"] = overcam
         return log
 
 
