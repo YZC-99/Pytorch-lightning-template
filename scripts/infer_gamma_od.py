@@ -5,7 +5,7 @@
 # ------------------------------------------------------------------------------------
 from torchmetrics import JaccardIndex,Dice
 from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_precision_score,confusion_matrix,classification_report
-
+from math import log
 import argparse, os, sys, datetime, glob, importlib
 import torch
 import torch.nn as nn
@@ -41,37 +41,72 @@ def instantiate_from_config(config):
         raise KeyError("Expected key `target` to instantiate.")
     return get_obj_from_str(config["target"])(**config.get("params", dict()))
 
-def visual(input_image,y_true,y_pred):
+def visual(input_image,y_true,y_pred,logits,od_oc_mask):
+    logits = nn.functional.softmax(logits, dim=1)
+    logits,max_indices = torch.max(logits, dim=1)
+    logits = torch.squeeze(logits)
+    max_indices = torch.squeeze(max_indices)
+
+    prob = max_indices*logits
+
     y_color,predict_color = gray2rgb(y_true,y_pred)
     y_color,predict_color = torch.squeeze(y_color),torch.squeeze(predict_color)
+
+    od_oc_mask_color,_ = gray2rgb(od_oc_mask,y_pred)
+    od_oc_mask_color = torch.squeeze(od_oc_mask_color)
     # 将标签图和预测图转换为灰度图像
     # label_image = y_true.reshape(y_true.shape)  # 假设image_shape为标签图的形状
     # pred_image = y_pred.reshape(y_true.shape)  # 假设image_shape为预测图的形状
     input_image = np.transpose(torch.squeeze(input_image).cpu().numpy())
     label_image = np.transpose(y_color.cpu().numpy(),(1,2,0))
     pred_image = np.transpose(predict_color.cpu().numpy(),(1,2,0))
+    od_oc_mask_image = np.transpose(od_oc_mask_color.cpu().numpy(),(1,2,0))
+
+    prob = np.transpose(prob.cpu().numpy())
+    prob = np.rot90(prob, k=1, axes=(0, 1))
     # 创建一个图像对象并绘制标签图和预测图
-    fig, axes = plt.subplots(1, 3, figsize=(10, 5))
+    fig, axes = plt.subplots(1, 6, figsize=(16, 9))
 
     # 绘制图
     axes[0].imshow(input_image)
     axes[0].set_title('Image')
     # 绘制标签图
     axes[1].imshow(label_image)
-    axes[1].set_title('Label Image')
+    axes[1].set_title('OD Label Image')
 
     # 绘制预测图
     axes[2].imshow(pred_image)
-    axes[2].set_title('Predicted Image')
+    axes[2].set_title('Predicted OD Image')
 
+    # 绘制概率图
+    pseudo_oc = np.zeros_like(prob)
+    pseudo_oc[prob == 1] = 1
+    # pseudo_oc = np.rot90(pseudo_oc, k=1, axes=(0, 1))
+    axes[3].imshow(pseudo_oc)
+    axes[3].set_title('pseudo OC Image')
+    # axes[3].tight_layout()
+
+    # od_oc
+    axes[4].imshow(od_oc_mask_image)
+    axes[4].set_title('od_oc_mask_image')
+
+    # true_oc - pseudo_oc
+    od_oc_mask = torch.squeeze(od_oc_mask).cpu().numpy()
+
+    true_oc = np.zeros_like(od_oc_mask)
+    true_oc[od_oc_mask == 1] = 1
+    oc_true_minus_pseudo = true_oc - pseudo_oc
+    # od_oc
+    mapped_value = np.log(prob - np.min(prob) + 1) / np.log(np.max(prob) - np.min(prob) + 1) * (255 - 0) + 0
+    mapped_value = np.clip(mapped_value, 0, 255)  # 截断映射后的值，限制在0到255范围内
+    axes[5].imshow(mapped_value)
+    axes[5].set_title('mapped_value')
+
+
+    # 关闭所有子图的坐标刻度
+    plt.setp(axes, xticks=[], yticks=[])
     # 设置图像标题和坐标轴标签
     fig.suptitle('Label vs. Predicted Images')
-    axes[0].set_xlabel('X-axis')
-    axes[0].set_ylabel('Y-axis')
-    axes[1].set_xlabel('X-axis')
-    axes[1].set_ylabel('Y-axis')
-    axes[2].set_xlabel('X-axis')
-    axes[2].set_ylabel('Y-axis')
     # 显示图像
     plt.show()
 
@@ -91,11 +126,12 @@ if __name__ == '__main__':
     model.to(device)
     model.eval()
 
+
     for data in test_dl:
-        input,y = data['image'].to(device),data['label'].to(device)
+        input,y,od_oc_mask = data['image'].to(device),data['label'].to(device),data['od_oc_mask'].to(device)
         logits = model(input)['out'].detach()
         preds = nn.functional.softmax(logits, dim=1).argmax(1)
-        visual(data['original_image'],y,preds)
+        # visual(data['original_image'],y,preds,logits,od_oc_mask)
 
         y_true = y.cpu().numpy().flatten()
         y_pred = preds.cpu().numpy().flatten()

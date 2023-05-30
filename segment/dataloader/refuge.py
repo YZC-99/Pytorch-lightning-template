@@ -9,17 +9,21 @@ from torch.utils.data import Dataset
 from . import transforms as T
 import torchvision.transforms as transforms
 
-def preprocess_mask(img,label_type):
-    mask = np.zeros_like(img)
-    if label_type == 'od':
-        mask[img == 128] = 1
-        mask[img == 0] = 1
-    elif label_type == 'oc':
-        mask[img == 0] = 1
-    elif label_type == 'od_oc':
-        mask[img == 128] = 1
-        mask[img == 0] = 2
-    return mask
+def preprocess_mask(img):
+    od_mask = np.zeros_like(img)
+    oc_mask = np.zeros_like(img)
+    od_oc_mask = np.zeros_like(img)
+
+    od_mask[img == 128] = 1
+    od_mask[img == 0] = 1
+
+    oc_mask[img == 0] = 1
+
+    od_oc_mask[img == 128] = 1
+    od_oc_mask[img == 0] = 2
+    return {'od':od_mask,
+            'oc':oc_mask,
+            'od_oc':od_oc_mask}
 
 
 class SegmentationBase(Dataset):
@@ -97,10 +101,20 @@ class SegmentationBase(Dataset):
         assert segmentation.mode == "L", segmentation.mode
         segmentation = np.array(segmentation).astype(np.uint8)
         # Preprocess
-        segmentation = preprocess_mask(segmentation,self.seg_object)
-        segmentation = Image.fromarray(segmentation)
+        segmentation_dict = preprocess_mask(segmentation)
+        segmentation = segmentation_dict[self.seg_object]
 
+        segmentation = Image.fromarray(segmentation)
         img, mask = self.transforms(image, segmentation)
+
+        _,od_mask = self.transforms(image, Image.fromarray(segmentation_dict['od']))
+        _,oc_mask = self.transforms(image, Image.fromarray(segmentation_dict['oc']))
+        _,od_oc_mask = self.transforms(image, Image.fromarray(segmentation_dict['od_oc']))
+
+
+        example["od_mask"] = od_mask
+        example["oc_mask"] = oc_mask
+        example["od_oc_mask"] = od_oc_mask
 
         example["image"] = img
         example["label"] = mask

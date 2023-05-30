@@ -84,8 +84,13 @@ class Unet_Decoder(pl.LightningModule):
 
 
     def forward(self,x_dict):
-        x = self.up1(x_dict['x5'],x_dict['x4'])
-        x = self.up2(x,x_dict['x3'])
-        x = self.up3(x,x_dict['x2'])
-        x = self.up4(x,x_dict['x1'])
-        return x
+        x_up1 = self.up1(x_dict['x5'],x_dict['x4'])
+        x_up2 = self.up2(x_up1,x_dict['x3'])
+        x_up3 = self.up3(x_up2,x_dict['x2'])
+        x_up4 = self.up4(x_up3,x_dict['x1'])
+        return {
+            'x_up1':x_up1,
+            'x_up2':x_up2,
+            'x_up3':x_up3,
+            'x_up4':x_up4,
+        }

@@ -30,7 +30,7 @@ def instantiate_from_config(config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='classification/ddr_resnet50')
+    parser.add_argument('-c', '--config', type=str, default='refuge/refuge_preod_oc_unet_lock_encoder')
     parser.add_argument('-s', '--seed', type=int, default=0)
     
     parser.add_argument('-nn', '--num_nodes', type=int, default=1)
