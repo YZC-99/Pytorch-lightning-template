@@ -109,7 +109,7 @@ class Align_UNet(UNet):
 
     def forward(self, x: torch.Tensor) -> Dict[str, torch.Tensor]:
         x_dict = self.encoder(x)
-        output = self.decoder(x_dict)
+        output = self.decoder(x_dict)['x_up4']
 
         confidence = self.confidence_layer(output).sigmoid()
         output = self.out_conv(output)

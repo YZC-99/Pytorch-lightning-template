@@ -30,11 +30,11 @@ def instantiate_from_config(config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='refuge/refuge_preod_oc_unet_lock_encoder')
+    parser.add_argument('-c', '--config', type=str, default='refuge/refuge_oc_align3e-1_grwCE_unet')
     parser.add_argument('-s', '--seed', type=int, default=0)
     
     parser.add_argument('-nn', '--num_nodes', type=int, default=1)
-    parser.add_argument('-ng', '--num_gpus', type=int, default=1)
+    parser.add_argument('-ng', '--num_gpus', type=int, default=2)
     
     parser.add_argument('-u', '--update_every', type=int, default=1)
     parser.add_argument('-e', '--epochs', type=int, default=100)
@@ -77,4 +77,4 @@ if __name__ == '__main__':
 
     # Train
     trainer.fit(model, data)
-#     os.system("/usr/bin/shutdown")
+

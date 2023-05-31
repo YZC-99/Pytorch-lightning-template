@@ -123,18 +123,18 @@ class SegmentationBase(Dataset):
 
 class REFUGESegTrain(SegmentationBase):
     def __init__(self, size=None, train=True,seg_object='od', interpolation="bicubic"):
-        super().__init__(data_csv='F:/DL-Data/eyes/OD_OC/REFUGE/refuge_train.txt',
-                         data_root='F:/DL-Data/eyes/OD_OC/REFUGE/images',
-                         segmentation_root='F:/DL-Data/eyes/OD_OC/REFUGE/ground_truths',
+        super().__init__(data_csv='data/REFUGE/refuge_train.txt',
+                         data_root='data/REFUGE/images',
+                         segmentation_root='data/REFUGE/ground_truths',
                          size=size, interpolation=interpolation, train=train,
                          n_labels=2,seg_object=seg_object)
 
 
 class REFUGESegEval(SegmentationBase):
     def __init__(self, size=None, train=False,seg_object='od', interpolation="bicubic"):
-        super().__init__(data_csv='F:/DL-Data/eyes/OD_OC/REFUGE/refuge_eval.txt',
-                         data_root='F:/DL-Data/eyes/OD_OC/REFUGE/images',
-                         segmentation_root='F:/DL-Data/eyes/OD_OC/REFUGE/ground_truths',
+        super().__init__(data_csv='data/REFUGE/refuge_eval.txt',
+                         data_root='data/REFUGE/images',
+                         segmentation_root='data/REFUGE/ground_truths',
                          size=size, interpolation=interpolation, train=train,
                          n_labels=2,seg_object=seg_object)
 

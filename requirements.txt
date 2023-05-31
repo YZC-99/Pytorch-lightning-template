@@ -16,3 +16,5 @@ torch==1.13.1+cu116
 torchvision==0.14.1+cu116
 wandb==0.15.0
 git+https://github.com/szagoruyko/pytorchviz
+
+git+https://ghproxy.com/https://github.com/szagoruyko/pytorchviz
