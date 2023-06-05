@@ -54,7 +54,7 @@ class Resnet50(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         # "batch" is the output of the training data loader.
         imgs = self.get_input(batch, self.image_key)
-        labels = batch['label']
+        labels = batch['class_label']
         preds = self.model(imgs)
         loss = self.loss(preds, labels)
 
@@ -78,7 +78,7 @@ class Resnet50(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         imgs = self.get_input(batch, self.image_key)
-        labels = batch['label']
+        labels = batch['class_label']
         logits = self.model(imgs)
         preds = nn.functional.softmax(logits,dim=1).argmax(1)
 

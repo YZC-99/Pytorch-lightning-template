@@ -69,6 +69,15 @@ class BaseModel(pl.LightningModule):
 
         total_epochs = self.trainer.max_epochs
         scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizers[0], T_max=total_epochs)
+        # torch.optim.lr_scheduler.PolynomialLR()
+        # schedulers = [
+        #     {
+        #         'scheduler': scheduler,
+        #         'monitor': 'train/loss',
+        #         'patience': 10
+        #         'epoch/step': 1
+        #     }
+        # ]
 
         schedulers = [
             {
