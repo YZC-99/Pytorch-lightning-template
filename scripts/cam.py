@@ -23,7 +23,7 @@ cam_extractor = GradCAMpp(model,target_layer='layer4')
 # cam_extractor = SmoothGradCAMpp(model,target_layer='decoder')
 
 # 读取图片
-img = read_image("../data/cat/T0001.jpg")
+img = read_image("../img/T0001.jpg")
 input_tensor = normalize(resize(img, (128, 128)) / 255., [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
 # 获得模型的输出
