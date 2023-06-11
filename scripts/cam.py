@@ -14,24 +14,22 @@ def hook(module, input, output):
 
 # 定义模型
 model = resnet50(pretrained=True).eval()
-# num_ftrs = model.fc.in_features
-# model.fc = torch.nn.Linear(num_ftrs, 2)
-# model = smp.Unet(classes=2).eval()
-# print(model)
-# layer4 = model.segmentation_head
-# hook_handle = layer4.register_forward_hook(hook)
+# chpt_path = ''
+# sd = torch.load(chpt_path, map_location='cpu')['state_dict']
+# keys = list(sd.keys())
+# model.load_state_dict(sd, strict=False)
 
-# model = seg.fcn_resnet50(pretrained=True)
-# 设置CAM extractor
 cam_extractor = GradCAMpp(model,target_layer='layer4')
 # cam_extractor = SmoothGradCAMpp(model,target_layer='decoder')
 
 # 读取图片
 img = read_image("../img/T0001.jpg")
+
 input_tensor = normalize(resize(img, (224, 224)) / 255., [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
 # 获得模型的输出
 out = model(input_tensor.unsqueeze(0))
+
 
 
 # 将模型的输出输入到cam_extractor
