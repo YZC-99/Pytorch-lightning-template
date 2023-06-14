@@ -43,14 +43,16 @@ def initialize_from_config(config: OmegaConf) -> object:
 def setup_callbacks(exp_config: OmegaConf, config: OmegaConf) -> Tuple[List[Callback], TensorBoardLogger]:
     now = datetime.now().strftime('%d%m%Y_%H%M%S')
     basedir = pathlib.Path("experiments", exp_config.name, now)
+
     os.makedirs(basedir, exist_ok=True)
 
     setup_callback = SetupCallback(config, exp_config, basedir)
     checkpoint_callback = ModelCheckpoint(
         dirpath=setup_callback.ckptdir,
         filename=exp_config.name+"-{epoch:02d}",
-        monitor="train/total_loss",
-        save_top_k=3,
+        # monitor="train/total_loss",
+        monitor={"train/total_loss":"min"},
+        save_top_k=1,
         save_last=True,
         verbose=False,
     )
