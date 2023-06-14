@@ -12,16 +12,16 @@ dataset:
     target: classification.dataloader.DataModuleFromConfig
     params:
         batch_size: 8
-        num_workers: 0
+        num_workers: 16
         train:
             target: classification.dataloader.multi_disease.Multi_diseaseTrain
             params:
-                size: 128
-                data_csv: F:/DL-Data/eyes/glaucoma_OD_OC/multi_diease/cataract/dataset/train.txt
-                data_root: F:/DL-Data/eyes/glaucoma_OD_OC/multi_diease/cataract/dataset
+                size: 512
+                data_csv: data/multi_diease/train.txt
+                data_root: data/multi_diease
         validation:
             target: classification.dataloader.multi_disease.Multi_diseaseEval
             params:
-                size: 128
-                data_csv: F:/DL-Data/eyes/glaucoma_OD_OC/multi_diease/cataract/dataset/train.txt
-                data_root: F:/DL-Data/eyes/glaucoma_OD_OC/multi_diease/cataract/dataset
+                size: 512
+                data_csv: data/multi_diease/train.txt
+                data_root: data/multi_diease

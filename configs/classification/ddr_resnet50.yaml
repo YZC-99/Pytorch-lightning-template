@@ -17,6 +17,8 @@ dataset:
             target: classification.dataloader.ddr.DDRGradTrain
             params:
                 size: 128
+                data_csv: F:/DL-Data/eyes/DDR/DDR-dataset.zip/DDR-dataset/DR_grading/train.txt
+                data_root: F:/DL-Data/eyes/DDR/DDR-dataset.zip/DDR-dataset/DR_grading/train
 
         validation:
             target: classification.dataloader.ddr.DDRGradEval

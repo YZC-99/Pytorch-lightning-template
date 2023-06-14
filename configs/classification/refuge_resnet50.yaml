@@ -14,16 +14,21 @@ dataset:
         batch_size: 8
         num_workers: 16
         train:
-            target: classification.dataloader.refuge.REFUGESegTrain
+            target: classification.dataloader.refuge.REFUGEClassTrain
             params:
                 size: 512
-                data_csv: data/REFUGE/refuge_train.txt
-                data_root: data/REFUGE/images
-                segmentation_root: data/REFUGE/ground_truths
+                data_csv: data/REFUGE/class_train.txt
+                data_root: data/REFUGE
         validation:
-            target: classification.dataloader.refuge.REFUGESegEval
+            target: classification.dataloader.refuge.REFUGEClassEval
             params:
                 size: 512
-                data_csv: data/REFUGE/refuge_eval.txt
-                data_root: data/REFUGE/images
-                segmentation_root: data/REFUGE/ground_truths
+                data_csv: data/REFUGE/class_eval.txt
+                data_root: data/REFUGE
+        test:
+            target: classification.dataloader.refuge.REFUGEClassTest
+            params:
+                size: 512
+                data_csv: data/REFUGE/class_test.txt
+                data_root: data/REFUGE
+

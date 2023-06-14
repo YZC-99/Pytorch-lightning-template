@@ -41,7 +41,7 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--use_amp', default=False, action='store_true')
     parser.add_argument('-b', '--batch_frequency', type=int, default=10000)
     parser.add_argument('-m', '--max_images', type=int, default=1)
-    parser.add_argument('--limit_val_batches', type=int, default=1)
+    parser.add_argument('--limit_val_batches', type=int, default=8)
     args = parser.parse_args()
 
     # Set random seed

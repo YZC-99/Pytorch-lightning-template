@@ -74,14 +74,20 @@ class SegmentationBase(Dataset):
 
 
 class DDRGradTrain(SegmentationBase):
-    def __init__(self, size=None):
+    def __init__(self,
+                 data_csv,
+                 data_root,
+                 size=None):
         super().__init__(data_csv='F:/DL-Data/eyes/DDR/DDR-dataset.zip/DDR-dataset/DR_grading/train.txt',
                          data_root='F:/DL-Data/eyes/DDR/DDR-dataset.zip/DDR-dataset/DR_grading/train',
                          size=size,train=True)
 
 
 class DDRGradEval(SegmentationBase):
-    def __init__(self, size=None):
+    def __init__(self,
+                 data_csv,
+                 data_root,
+                 size=None):
         super().__init__(data_csv='F:/DL-Data/eyes/DDR/DDR-dataset.zip/DDR-dataset/DR_grading/valid.txt',
                          data_root='F:/DL-Data/eyes/DDR/DDR-dataset.zip/DDR-dataset/DR_grading/valid',
                          size=size,train=False)

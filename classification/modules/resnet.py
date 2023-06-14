@@ -2,15 +2,15 @@ import torch
 import torch.nn as nn
 import numpy as np
 from typing import List,Tuple, Dict, Any, Optional
+import torch.nn.functional as F
 from omegaconf import OmegaConf
 from utils.general import initialize_from_config
 from torch.optim import lr_scheduler
-import torchmetrics
 import pytorch_lightning as pl
 from torchvision.models import resnet18,resnet50
-from torchmetrics import JaccardIndex,Dice
-from sklearn.metrics import precision_score,accuracy_score,roc_auc_score, recall_score,f1_score
-
+# from torchmetrics.functional import accuracy,precision,f1_score,recall,auroc
+from torchmetrics import Accuracy,Precision,F1Score,Recall,AUROC
+import torchmetrics
 
 class Resnet50(pl.LightningModule):
     def __init__(self,
@@ -36,8 +36,14 @@ class Resnet50(pl.LightningModule):
         self.loss = nn.CrossEntropyLoss()
         # Example input for visualizing the graph in Tensorboard
         self.example_input_array = torch.zeros((1, 3, 32, 32), dtype=torch.float32)
-        task = 'multiclass' if num_classes > 2 else 'binary'
-        # metrics
+        self.task = 'multiclass' if num_classes > 2 else 'binary'
+
+        self.acc = Accuracy(self.task)
+        self.pre = Precision(self.task)
+        self.f1 = F1Score(self.task)
+        self.recall = Recall(self.task)
+        self.auroc = AUROC(self.task)
+
         if ckpt_path is not None:
             self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys)
     def forward(self, imgs):
@@ -51,63 +57,53 @@ class Resnet50(pl.LightningModule):
 
         preds = self.model(imgs)
         loss = self.loss(preds, labels)
-
         preds = nn.functional.softmax(preds, dim=1).argmax(1)
-        y_pred = preds.cpu().numpy().flatten()
-        y_true = labels.cpu().numpy().flatten()
-        if len(np.unique(y_true)) < 2:
-            # 处理只有一个类别的情况
-            self.log("val/auc", 0.0, prog_bar=True, logger=True, on_epoch=True, sync_dist=True)
-        else:
-            mean_pre = precision_score(y_true, y_pred)
-            acc = accuracy_score(y_true, y_pred)
-            recall = recall_score(y_true, y_pred)
-            f1 = f1_score(y_true, y_pred)
 
+        self.acc(preds, labels)
+        self.pre(preds, labels)
+        self.f1(preds, labels)
+        self.recall(preds,labels)
+        self.auroc(preds, labels)
 
-        #
-        # Logs the accuracy per epoch to tensorboard (weighted average over batches)
-        self.log("train/acc", acc, prog_bar=True, logger=True, on_epoch=True)
-        self.log("train/mean_pre", mean_pre, prog_bar=True, logger=True, on_epoch=True)
-        self.log("train/recall", recall, prog_bar=True, logger=True, on_epoch=True)
-        self.log("train/f1", f1, prog_bar=True, logger=True, on_epoch=True)
+        self.log(f"train/acc", self.acc, prog_bar=True)
+        self.log(f"train/pre", self.pre, prog_bar=True)
+        self.log(f"train/f1", self.f1, prog_bar=True)
+        self.log(f"train/recall", self.recall, prog_bar=True)
+        self.log(f"train/auroc", self.auroc, prog_bar=True)
 
         self.log("train/lr", self.optimizers().param_groups[0]['lr'], prog_bar=True, logger=True, on_epoch=True)
         self.log("train/total_loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
         return loss
 
-    def validation_step(self, batch, batch_idx):
+    def evaluate(self, batch, stage=None):
         imgs = self.get_input(batch, self.image_key)
         labels = batch['class_label']
         logits = self.model(imgs)
-        preds = nn.functional.softmax(logits,dim=1).argmax(1)
-
         loss = self.loss(logits, labels)
-        output = {'y_true':labels,'y_pred':preds,'loss_step':loss}
-        self.log("val/loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True, sync_dist=True)
-        return output
+        logits = F.log_softmax(logits, dim=1)
+        preds = torch.argmax(logits, dim=1)
 
-    def validation_epoch_end(self, outputs: List[Dict[str, Any]]) -> None:
-        y_true = []
-        y_pred = []
 
-        for output in outputs:
-            y_true.extend(output['y_true'].cpu().numpy().flatten())
-            y_pred.extend(output['y_pred'].cpu().numpy().flatten())
-        if len(np.unique(y_true)) < 2:
-            # 处理只有一个类别的情况
-            self.log("val/auc", 0.0, prog_bar=True, logger=True, on_epoch=True, sync_dist=True)
-        else:
-            preci_score = precision_score(y_true, y_pred)
-            acc_score = accuracy_score(y_true, y_pred)
-            auc = roc_auc_score(y_true, y_pred)
-            recall = recall_score(y_true, y_pred)
-            f1 = f1_score(y_true, y_pred)
-            self.log("val/preci_score", preci_score, prog_bar=True, logger=True, on_epoch=True, sync_dist=True)
-            self.log("val/acc_score", acc_score, prog_bar=True, logger=True, on_epoch=True, sync_dist=True)
-            self.log("val/auc", auc, prog_bar=True, logger=True, on_epoch=True, sync_dist=True)
-            self.log("val/recall", recall, prog_bar=True, logger=True, on_epoch=True, sync_dist=True)
-            self.log("val/f1", f1, prog_bar=True, logger=True, on_epoch=True, sync_dist=True)
+        self.acc(preds, labels)
+        self.pre(preds, labels)
+        self.f1(preds, labels)
+        self.recall(preds,labels)
+        self.auroc(preds, labels)
+
+        if stage:
+            self.log(f"{stage}/loss", loss, prog_bar=True)
+            self.log(f"{stage}/acc", self.acc, prog_bar=True)
+            self.log(f"{stage}/pre", self.pre, prog_bar=True)
+            self.log(f"{stage}/f1", self.f1, prog_bar=True)
+            self.log(f"{stage}/recall", self.recall, prog_bar=True)
+            self.log(f"{stage}/auroc", self.auroc, prog_bar=True)
+
+    def validation_step(self, batch, batch_idx):
+        self.evaluate(batch,"val")
+
+    def test_step(self, batch, batch_idx):
+        self.evaluate(batch,"test")
+
 
     def init_from_ckpt(self,path: str,ignore_keys: List[str] = list()):
         sd = torch.load(path,map_location='cpu')['state_dict']
