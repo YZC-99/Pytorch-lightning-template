@@ -52,17 +52,25 @@ class Resnet50(pl.LightningModule):
         preds = self.model(imgs)
         loss = self.loss(preds, labels)
 
-
+        preds = nn.functional.softmax(preds, dim=1).argmax(1)
+        y_pred = preds.cpu().numpy().flatten()
+        y_true = labels.cpu().numpy().flatten()
+        if len(np.unique(y_true)) < 2:
+            # 处理只有一个类别的情况
+            self.log("val/auc", 0.0, prog_bar=True, logger=True, on_epoch=True, sync_dist=True)
+        else:
+            mean_pre = precision_score(y_true, y_pred)
+            acc = accuracy_score(y_true, y_pred)
+            recall = recall_score(y_true, y_pred)
+            f1 = f1_score(y_true, y_pred)
 
 
         #
-        # # Logs the accuracy per epoch to tensorboard (weighted average over batches)
-        # self.log("train/acc", acc, prog_bar=True, logger=True, on_epoch=True)
-        # self.log("train/mean_pre", mean_pre, prog_bar=True, logger=True, on_epoch=True)
-        # self.log("train/recall", recall, prog_bar=True, logger=True, on_epoch=True)
-        # self.log("train/f1", f1, prog_bar=True, logger=True, on_epoch=True)
-        # self.log("train/sp", sp, prog_bar=True, logger=True, on_epoch=True)
-        # self.log("train/auroc", auroc, prog_bar=True, logger=True, on_epoch=True)
+        # Logs the accuracy per epoch to tensorboard (weighted average over batches)
+        self.log("train/acc", acc, prog_bar=True, logger=True, on_epoch=True)
+        self.log("train/mean_pre", mean_pre, prog_bar=True, logger=True, on_epoch=True)
+        self.log("train/recall", recall, prog_bar=True, logger=True, on_epoch=True)
+        self.log("train/f1", f1, prog_bar=True, logger=True, on_epoch=True)
 
         self.log("train/lr", self.optimizers().param_groups[0]['lr'], prog_bar=True, logger=True, on_epoch=True)
         self.log("train/total_loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
