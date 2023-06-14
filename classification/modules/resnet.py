@@ -50,6 +50,21 @@ class Resnet50(pl.LightningModule):
         # Forward function that is run when visualizing the graph
         return self.model(imgs)
 
+    def compute_metrics(self, preds, labels,stage=None):
+        self.acc(preds, labels)
+        self.pre(preds, labels)
+        self.f1(preds, labels)
+        self.recall(preds, labels)
+        self.auroc(preds, labels)
+        if stage:
+            self.log(f"{stage}/acc", self.acc, prog_bar=True)
+            self.log(f"{stage}/pre", self.pre, prog_bar=True)
+            self.log(f"{stage}/f1", self.f1, prog_bar=True)
+            self.log(f"{stage}/recall", self.recall, prog_bar=True)
+            self.log(f"{stage}/auroc", self.auroc, prog_bar=True)
+
+
+
     def training_step(self, batch, batch_idx):
         # "batch" is the output of the training data loader.
         imgs = self.get_input(batch, self.image_key)
@@ -59,23 +74,16 @@ class Resnet50(pl.LightningModule):
         loss = self.loss(preds, labels)
         preds = nn.functional.softmax(preds, dim=1).argmax(1)
 
-        self.acc(preds, labels)
-        self.pre(preds, labels)
-        self.f1(preds, labels)
-        self.recall(preds,labels)
-        self.auroc(preds, labels)
-
-        self.log(f"train/acc", self.acc, prog_bar=True)
-        self.log(f"train/pre", self.pre, prog_bar=True)
-        self.log(f"train/f1", self.f1, prog_bar=True)
-        self.log(f"train/recall", self.recall, prog_bar=True)
-        self.log(f"train/auroc", self.auroc, prog_bar=True)
+        self.compute_metrics(preds,labels,"train")
 
         self.log("train/lr", self.optimizers().param_groups[0]['lr'], prog_bar=True, logger=True, on_epoch=True)
         self.log("train/total_loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True)
         return loss
 
-    def evaluate(self, batch, stage=None):
+
+
+
+    def validation_step(self, batch, batch_idx):
         imgs = self.get_input(batch, self.image_key)
         labels = batch['class_label']
         logits = self.model(imgs)
@@ -83,26 +91,16 @@ class Resnet50(pl.LightningModule):
         logits = F.log_softmax(logits, dim=1)
         preds = torch.argmax(logits, dim=1)
 
-
-        self.acc(preds, labels)
-        self.pre(preds, labels)
-        self.f1(preds, labels)
-        self.recall(preds,labels)
-        self.auroc(preds, labels)
-
-        if stage:
-            self.log(f"{stage}/loss", loss, prog_bar=True)
-            self.log(f"{stage}/acc", self.acc, prog_bar=True)
-            self.log(f"{stage}/pre", self.pre, prog_bar=True)
-            self.log(f"{stage}/f1", self.f1, prog_bar=True)
-            self.log(f"{stage}/recall", self.recall, prog_bar=True)
-            self.log(f"{stage}/auroc", self.auroc, prog_bar=True)
-
-    def validation_step(self, batch, batch_idx):
-        self.evaluate(batch,"val")
+        self.compute_metrics(preds,labels,"val")
+        self.log(f"val/loss", loss, prog_bar=True)
 
     def test_step(self, batch, batch_idx):
-        self.evaluate(batch,"test")
+        imgs = self.get_input(batch, self.image_key)
+        labels = batch['class_label']
+        logits = self.model(imgs)
+        logits = F.log_softmax(logits, dim=1)
+        preds = torch.argmax(logits, dim=1)
+        self.compute_metrics(preds, labels, "test")
 
 
     def init_from_ckpt(self,path: str,ignore_keys: List[str] = list()):
