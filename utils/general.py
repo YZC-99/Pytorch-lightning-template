@@ -15,7 +15,7 @@ from datetime import datetime
 import torch
 from pytorch_lightning.callbacks import ModelCheckpoint, Callback
 from pytorch_lightning.loggers import WandbLogger,TensorBoardLogger
-
+import torch.distributed as dist
 from .callback import *
 
 
@@ -43,20 +43,21 @@ def initialize_from_config(config: OmegaConf) -> object:
 def setup_callbacks(exp_config: OmegaConf, config: OmegaConf) -> Tuple[List[Callback], TensorBoardLogger]:
     now = datetime.now().strftime('%d%m%Y_%H%M%S')
     basedir = pathlib.Path("experiments", exp_config.name, now)
-
-    os.makedirs(basedir, exist_ok=True)
+    if dist.is_initialized() and dist.get_rank() == 0:
+        os.makedirs(basedir, exist_ok=True)
 
     setup_callback = SetupCallback(config, exp_config, basedir)
     checkpoint_callback = ModelCheckpoint(
         dirpath=setup_callback.ckptdir,
         filename=exp_config.name+"-{epoch:02d}",
-        # monitor="train/total_loss",
-        monitor={"train/total_loss":"min"},
+        monitor="train/total_loss",
+        # monitor={"train/total_loss":"min"},
         save_top_k=1,
         save_last=True,
         verbose=False,
     )
-    os.makedirs(setup_callback.logdir, exist_ok=True)
+    if dist.is_initialized() and dist.get_rank() == 0:
+        os.makedirs(setup_callback.logdir, exist_ok=True)
     logger = TensorBoardLogger(save_dir=str(setup_callback.logdir))
     # csv_logger = CSVLogger(str(setup_callback.logdir), 'results.csv')
     logger_img_callback = ImageLogger(exp_config.batch_frequency, exp_config.max_images)
