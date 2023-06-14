@@ -4,4 +4,4 @@ git add .
 
 git commit -m "added"
 
-git pull
+git pull --rebase
