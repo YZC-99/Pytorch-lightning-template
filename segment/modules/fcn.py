@@ -6,7 +6,7 @@ import numpy as np
 from torchmetrics import JaccardIndex,Dice
 from sklearn.metrics import precision_recall_curve, auc, roc_auc_score, average_precision_score,confusion_matrix
 
-from segment.utils.general import initialize_from_config
+from utils.general import initialize_from_config
 from omegaconf import OmegaConf
 from typing import List,Tuple, Dict, Any, Optional
 

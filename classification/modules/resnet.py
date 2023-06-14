@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 from typing import List,Tuple, Dict, Any, Optional
 from omegaconf import OmegaConf
-from segment.utils.general import initialize_from_config
+from utils.general import initialize_from_config
 from torch.optim import lr_scheduler
 import torchmetrics
 import pytorch_lightning as pl

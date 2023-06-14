@@ -5,7 +5,7 @@ from torchcam.methods import SmoothGradCAMpp
 from torchcam.utils import overlay_mask
 from typing import List,Tuple, Dict, Any, Optional
 from omegaconf import OmegaConf
-from segment.utils.general import initialize_from_config
+from utils.general import initialize_from_config
 import pytorch_lightning as pl
 from torchvision.transforms.functional import to_pil_image
 from torchmetrics import JaccardIndex,Dice

@@ -10,7 +10,7 @@ import argparse, os, sys, datetime, glob, importlib
 import torch
 import torch.nn as nn
 
-from segment.utils.general import get_config_from_file, initialize_from_config, setup_callbacks
+from utils.general import get_config_from_file, initialize_from_config, setup_callbacks
 from segment.dataloader.refuge import *
 from segment.dataloader.gamma import *
 import numpy as np
