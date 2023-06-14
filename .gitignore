@@ -1,5 +1,7 @@
 /experiments
 /data
 /ckpt
+*.pyc
+
 push.sh
 .ipynb_checkpoints

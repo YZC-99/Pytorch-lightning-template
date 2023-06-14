@@ -4,6 +4,7 @@
 # Licensed under the MIT License [see LICENSE for details]
 # ------------------------------------------------------------------------------------
 
+##
 import os
 import sys
 import argparse, os, sys, datetime, glob, importlib
@@ -12,7 +13,7 @@ from omegaconf import OmegaConf
 import torch
 import pytorch_lightning as pl
 
-from segment.utils.general import get_config_from_file, initialize_from_config, setup_callbacks
+from utils.general import get_config_from_file, initialize_from_config, setup_callbacks
 
 def get_obj_from_str(string, reload=False):
     module, cls = string.rsplit(".", 1)
@@ -30,7 +31,7 @@ def instantiate_from_config(config):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-c', '--config', type=str, default='classification/refuge_resnet50')
+    parser.add_argument('-c', '--config', type=str, default='classification/multi_diease_G_resnet50')
     parser.add_argument('-s', '--seed', type=int, default=0)
 
     parser.add_argument('-nn', '--num_nodes', type=int, default=1)

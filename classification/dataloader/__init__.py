@@ -9,7 +9,7 @@ from omegaconf import OmegaConf
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
 
-from ..utils.general import initialize_from_config
+from utils.general import initialize_from_config
 
 class DataModuleFromConfig(pl.LightningDataModule):
     def __init__(self, batch_size: int, train: Optional[OmegaConf] = None,

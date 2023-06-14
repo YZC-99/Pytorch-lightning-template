@@ -2,8 +2,8 @@ model:
     base_learning_rate: 1e-4
     target: segment.modules.unet.probUNet
     params:
-#        ckpt_path: ../ckpt/refuge_od_unet-epoch=95.ckpt
-        ckpt_path: ./ckpt/refuge_od_unet-epoch=95.ckpt
+        ckpt_path: ../ckpt/refuge_od_unet-epoch=85.ckpt
+#        ckpt_path: ./ckpt/refuge_od_unet-epoch=95.ckpt
         image_key: image
         in_channels: 3
         num_classes: 2
@@ -20,13 +20,13 @@ dataset:
         batch_size: 1
         num_workers: 0
         train:
-            target: segment.dataloader.gamma.GAMMASegTrain
+            target: segment.dataloader.refuge.REFUGESegTrain
             params:
                 size: 512
                 seg_object: od
 
         validation:
-            target: segment.dataloader.gamma.GAMMASegEval
+            target: segment.dataloader.refuge.REFUGESegEval
             params:
                 size: 512
                 seg_object: od

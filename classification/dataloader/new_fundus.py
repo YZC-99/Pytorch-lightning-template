@@ -89,6 +89,13 @@ class SegmentationBase(Dataset):
     def __getitem__(self, i):
         example = dict((k, self.labels[k][i]) for k in self.labels)
         image = Image.open(example["file_path_"])
+
+        first_letter = os.path.basename(example["file_path_"])[0]
+        if first_letter == 'n':
+            class_label = 0
+        else:
+            class_label = 1
+
         if not image.mode == "RGB":
             image = image.convert("RGB")
 
@@ -111,20 +118,22 @@ class SegmentationBase(Dataset):
         _,oc_mask = self.transforms(image, Image.fromarray(segmentation_dict['oc']))
         _,od_oc_mask = self.transforms(image, Image.fromarray(segmentation_dict['od_oc']))
 
-
         example["od_mask"] = od_mask
         example["oc_mask"] = oc_mask
         example["od_oc_mask"] = od_oc_mask
 
         example["image"] = img
         example["label"] = mask
+        example["class_label"] = class_label
         return example
 
 
-class REFUGESegTrain(SegmentationBase):
-    def __init__(self,data_csv='data/REFUGE/refuge_train.txt',
-                      data_root='data/REFUGE/images',
-                      segmentation_root='data/REFUGE/ground_truths', size=None, train=True,seg_object='od', interpolation="bicubic"):
+class REFUGETrain(SegmentationBase):
+    def __init__(self, size=None, train=True,seg_object='od', interpolation="bicubic",
+                 data_csv='data/REFUGE/refuge_eval.txt',
+                 data_root='data/REFUGE/images',
+                 segmentation_root='data/REFUGE/ground_truths',
+                 ):
         super().__init__(data_csv=data_csv,
                          data_root=data_root,
                          segmentation_root=segmentation_root,
@@ -132,24 +141,21 @@ class REFUGESegTrain(SegmentationBase):
                          n_labels=2,seg_object=seg_object)
 
 
-class REFUGESegEval(SegmentationBase):
-    def __init__(self,data_csv='data/REFUGE/refuge_eval.txt',
-                      data_root='data/REFUGE/images',
-                      segmentation_root='data/REFUGE/ground_truths', size=None, train=False,seg_object='od', interpolation="bicubic"):
+class REFUGEEval(SegmentationBase):
+    def __init__(self,
+                 size=None,
+                 train=False,seg_object='od',
+                 interpolation="bicubic",
+                 data_csv='data/REFUGE/refuge_eval.txt',
+                 data_root='data/REFUGE/images',
+                 segmentation_root='data/REFUGE/ground_truths',):
         super().__init__(data_csv=data_csv,
                          data_root=data_root,
                          segmentation_root=segmentation_root,
                          size=size, interpolation=interpolation, train=train,
                          n_labels=2,seg_object=seg_object)
 
-class REFUGESegTest(SegmentationBase):
-    def __init__(self,data_csv='data/REFUGE/refuge_eval.txt',
-                      data_root='data/REFUGE/images',
-                      segmentation_root='data/REFUGE/ground_truths',size=None, train=False,seg_object='od', interpolation="bicubic"):
-        super().__init__(data_csv=data_csv,
-                         data_root=data_root,
-                         segmentation_root=segmentation_root,
-                         size=size, interpolation=interpolation, train=train,
-                         n_labels=2,seg_object=seg_object)
 
-
+# data_csv = 'F:/DL-Data/eyes/glaucoma_OD_OC/Chákṣu IMAGE/Test/Test/6.0_Glaucoma_Decision/Expert 5/Remidio.csv'
+# data_root = 'F:/DL-Data/eyes/glaucoma_OD_OC/Chákṣu IMAGE/Test/Test/1.0_Original_Fundus_Images/Remidio'
+# train = REFUGESegTrain()

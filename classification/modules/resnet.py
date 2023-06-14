@@ -17,6 +17,8 @@ class Resnet50(pl.LightningModule):
                  image_key,
                  num_classes: int,
                  weight_decay,
+                 ckpt_path: str = None,
+                 ignore_keys: list = [],
                  ):
         super(Resnet50, self).__init__()
         self.weight_decay = weight_decay
@@ -36,17 +38,8 @@ class Resnet50(pl.LightningModule):
         self.example_input_array = torch.zeros((1, 3, 32, 32), dtype=torch.float32)
         task = 'multiclass' if num_classes > 2 else 'binary'
         # metrics
-        self.accuracy = torchmetrics.Accuracy(task,num_classes=num_classes)
-        self.Precision = torchmetrics.Precision(task,num_classes=num_classes)
-        self.AveragePrecision = torchmetrics.AveragePrecision(task,num_classes=num_classes)
-        self.PrecisionRecallCurve = torchmetrics.PrecisionRecallCurve(task,num_classes=num_classes)
-        self.F1Score = torchmetrics.F1Score(task,num_classes=num_classes)
-
-        self.Recall = torchmetrics.Recall(task,num_classes=num_classes)
-        self.Specificity = torchmetrics.Specificity(task,num_classes=num_classes)
-        self.ROC = torchmetrics.ROC(task,num_classes=num_classes)
-        self.AUROC = torchmetrics.AUROC(task,num_classes=num_classes)
-
+        if ckpt_path is not None:
+            self.init_from_ckpt(ckpt_path, ignore_keys=ignore_keys)
     def forward(self, imgs):
         # Forward function that is run when visualizing the graph
         return self.model(imgs)
@@ -55,22 +48,21 @@ class Resnet50(pl.LightningModule):
         # "batch" is the output of the training data loader.
         imgs = self.get_input(batch, self.image_key)
         labels = batch['class_label']
+
         preds = self.model(imgs)
         loss = self.loss(preds, labels)
 
-        acc = self.accuracy(preds,labels)
-        mean_pre = self.AveragePrecision(preds,labels)
-        recall = self.Recall(preds,labels)
-        f1 = self.F1Score(preds,labels)
-        sp = self.Specificity(preds,labels)
-        auroc = self.AUROC(preds,labels)
-        # Logs the accuracy per epoch to tensorboard (weighted average over batches)
-        self.log("train/acc", acc, prog_bar=True, logger=True, on_epoch=True)
-        self.log("train/mean_pre", mean_pre, prog_bar=True, logger=True, on_epoch=True)
-        self.log("train/recall", recall, prog_bar=True, logger=True, on_epoch=True)
-        self.log("train/f1", f1, prog_bar=True, logger=True, on_epoch=True)
-        self.log("train/sp", sp, prog_bar=True, logger=True, on_epoch=True)
-        self.log("train/auroc", auroc, prog_bar=True, logger=True, on_epoch=True)
+
+
+
+        #
+        # # Logs the accuracy per epoch to tensorboard (weighted average over batches)
+        # self.log("train/acc", acc, prog_bar=True, logger=True, on_epoch=True)
+        # self.log("train/mean_pre", mean_pre, prog_bar=True, logger=True, on_epoch=True)
+        # self.log("train/recall", recall, prog_bar=True, logger=True, on_epoch=True)
+        # self.log("train/f1", f1, prog_bar=True, logger=True, on_epoch=True)
+        # self.log("train/sp", sp, prog_bar=True, logger=True, on_epoch=True)
+        # self.log("train/auroc", auroc, prog_bar=True, logger=True, on_epoch=True)
 
         self.log("train/lr", self.optimizers().param_groups[0]['lr'], prog_bar=True, logger=True, on_epoch=True)
         self.log("train/total_loss", loss, prog_bar=True, logger=True, on_step=True, on_epoch=True)

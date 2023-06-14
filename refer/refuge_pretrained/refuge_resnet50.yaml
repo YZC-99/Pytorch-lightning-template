@@ -1,9 +1,10 @@
 model:
-    base_learning_rate: 1e-2
+    base_learning_rate: 1e-3
     target: classification.modules.resnet.Resnet50
     params:
+        ckpt_path: ../ckpt/refuge_resnet50-epoch=12.ckpt
         image_key: image
-        num_classes: 2
+        num_classes: 6
         weight_decay: 1e-4
 #        loss:
 #            target: segment.losses.seg.dice_loss.DC_and_CE_loss
@@ -11,19 +12,19 @@ model:
 dataset:
     target: classification.dataloader.DataModuleFromConfig
     params:
-        batch_size: 8
+        batch_size: 64
         num_workers: 16
         train:
             target: classification.dataloader.refuge.REFUGESegTrain
             params:
-                size: 512
+                size: 128
                 data_csv: data/REFUGE/refuge_train.txt
                 data_root: data/REFUGE/images
                 segmentation_root: data/REFUGE/ground_truths
         validation:
             target: classification.dataloader.refuge.REFUGESegEval
             params:
-                size: 512
-                data_csv: data/REFUGE/refuge_eval.txt
+                size: 128
+                data_csv: data/REFUGE/refuge_train.txt
                 data_root: data/REFUGE/images
                 segmentation_root: data/REFUGE/ground_truths

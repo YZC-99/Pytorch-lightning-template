@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="WebServers">
+    <option name="servers">
+      <webServer id="610ac8be-9404-4d1b-8f32-e8744c6c3da8" name="Pytorch-lightning-template" url="http://192.168.1.38">
+        <fileTransfer rootFolder="/home/ls/yzc/git_proj/Pytorch-lightning-template" accessType="SFTP" host="192.168.1.38" port="22" sshConfigId="7b3f8969-48b8-4b5b-b0a1-0eb0312ed204" sshConfig="ls@192.168.1.38:22 password">
+          <advancedOptions>
+            <advancedOptions dataProtectionLevel="Private" keepAliveTimeout="0" passiveMode="true" shareSSLContext="true" />
+          </advancedOptions>
+        </fileTransfer>
+      </webServer>
+    </option>
+  </component>
+</project>

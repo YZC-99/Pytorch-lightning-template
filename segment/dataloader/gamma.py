@@ -9,16 +9,22 @@ from torch.utils.data import Dataset
 from . import transforms as T
 
 def preprocess_mask(img,label_type):
-    mask = np.zeros_like(img)
+    od_mask = np.zeros_like(img)
+    oc_mask = np.zeros_like(img)
+    od_oc_mask = np.zeros_like(img)
     if label_type == 'od':
-        mask[img == 128] = 1
-        mask[img == 0] = 1
+        od_mask[img == 128] = 1
+        od_mask[img == 0] = 1
     elif label_type == 'oc':
-        mask[img == 0] = 1
+        oc_mask[img == 0] = 1
     elif label_type == 'od_oc':
-        mask[img == 128] = 1
-        mask[img == 0] = 2
-    return mask
+        od_oc_mask[img == 128] = 1
+        od_oc_mask[img == 0] = 2
+
+    return {'od':od_mask,
+            'oc':oc_mask,
+            'od_oc':od_oc_mask,
+    }
 
 
 class SegmentationBase(Dataset):
@@ -83,35 +89,47 @@ class SegmentationBase(Dataset):
         image = Image.open(example["file_path_"])
         if not image.mode == "RGB":
             image = image.convert("RGB")
+        image_tensor,_ = self.org_transforms(image,image)
+        example["original_image"] = image_tensor
         segmentation = Image.open(example["segmentation_path_"])
         if not segmentation.mode == "L":
             segmentation = segmentation.convert("L")
         assert segmentation.mode == "L", segmentation.mode
         segmentation = np.array(segmentation).astype(np.uint8)
         # Preprocess
-        segmentation = preprocess_mask(segmentation,self.seg_object)
+        segmentation_dict = preprocess_mask(segmentation)
+        segmentation = segmentation_dict[self.seg_object]
         segmentation = Image.fromarray(segmentation)
 
         img, mask = self.transforms(image, segmentation)
+
+        _,od_mask = self.transforms(image, Image.fromarray(segmentation_dict['od']))
+        _,oc_mask = self.transforms(image, Image.fromarray(segmentation_dict['oc']))
+        _,od_oc_mask = self.transforms(image, Image.fromarray(segmentation_dict['od_oc']))
+
+        example["od_mask"] = od_mask
+        example["oc_mask"] = oc_mask
+        example["od_oc_mask"] = od_oc_mask
+
         example["image"] = img
         example["label"] = mask
         return example
 
 
 class GAMMASegTrain(SegmentationBase):
-    def __init__(self, size=None, train=True,seg_object='od', interpolation="bicubic"):
-        super().__init__(data_csv='F:/DL-Data/eyes/OD_OC/GAMMA/gamma_all.txt',
-                         data_root='F:/DL-Data/eyes/OD_OC/GAMMA/images',
-                         segmentation_root='F:/DL-Data/eyes/OD_OC/GAMMA/ground_truths',
+    def __init__(self,data_csv='',data_root='',segmentation_root='',size=None, train=True,seg_object='od', interpolation="bicubic"):
+        super().__init__(data_csv=data_csv,
+                         data_root=data_root,
+                         segmentation_root=segmentation_root,
                          size=size, interpolation=interpolation, train=train,
                          n_labels=2,seg_object=seg_object)
 
 
 class GAMMASegEval(SegmentationBase):
-    def __init__(self, size=None, train=False,seg_object='od', interpolation="bicubic"):
-        super().__init__(data_csv='F:/DL-Data/eyes/OD_OC/GAMMA/gamma_all.txt',
-                         data_root='F:/DL-Data/eyes/OD_OC/GAMMA/images',
-                         segmentation_root='F:/DL-Data/eyes/OD_OC/GAMMA/ground_truths',
+    def __init__(self,data_csv='',data_root='',segmentation_root='', size=None, train=False,seg_object='od', interpolation="bicubic"):
+        super().__init__(data_csv=data_csv,
+                         data_root=data_root,
+                         segmentation_root=segmentation_root,
                          size=size, interpolation=interpolation, train=train,
                          n_labels=2,seg_object=seg_object)
 

@@ -11,7 +11,8 @@ import torch
 import torch.nn as nn
 
 from segment.utils.general import get_config_from_file, initialize_from_config, setup_callbacks
-
+from segment.dataloader.refuge import *
+from segment.dataloader.gamma import *
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -110,28 +111,21 @@ def visual(input_image,y_true,y_pred,logits,od_oc_mask):
     # 显示图像
     plt.show()
 
-if __name__ == '__main__':
-    # Load configuration
-    config = get_config_from_file("../refer/refuge_pretrained/refuge_od_unet_for_refuge.yaml")
+
+def testing(dataloader,
+            model,
+            num_classes):
+
     device = 'cuda:0'
-    num_classes= 2
-    # Build model
-    model = initialize_from_config(config.model)
-    model.learning_rate = config.model.base_learning_rate
-    # Build data modules
-    data = initialize_from_config(config.dataset)
-    data.prepare_data()
-    data.setup()
-    test_dl = data._test_dataloader()
     model.to(device)
     model.eval()
-
-
-    for data in test_dl:
-        input,y,od_oc_mask = data['image'].to(device),data['label'].to(device),data['od_oc_mask'].to(device)
+    num = len(dataloader)
+    total_iou = 0
+    total_dice = 0
+    for data in dataloader:
+        input,y = data['image'].to(device),data['label'].to(device)
         logits = model(input)['out'].detach()
         preds = nn.functional.softmax(logits, dim=1).argmax(1)
-        # visual(data['original_image'],y,preds,logits,od_oc_mask)
 
         y_true = y.cpu().numpy().flatten()
         y_pred = preds.cpu().numpy().flatten()
@@ -187,6 +181,116 @@ if __name__ == '__main__':
                 precision, recall, _ = precision_recall_curve(y_true_i, y_probs_i)
                 auc_pr_i = auc(recall, precision)
                 auc_roc_i = roc_auc_score(y_true_i, y_probs_i)
-        print(mean_iou)
-        print(mean_dice_score)
-        break
+        total_iou += mean_iou.detach().cpu().numpy()
+        total_dice += mean_dice_score.detach().cpu().numpy()
+    return {'mean_iou':total_iou/num,
+            'mean_dice_score':total_dice/num}
+
+if __name__ == '__main__':
+    # Load configuration
+    config_path = "../refer/refuge_pretrained/refuge_od_unet.yaml"
+    config = get_config_from_file(config_path)
+    num_classes= 2
+    device = 'cuda:0'
+    # Build model
+    model = initialize_from_config(config.model)
+    model.learning_rate = config.model.base_learning_rate
+
+    dl_dict = {}
+    # Build data modules
+    refuge_dataset = REFUGESegEval(
+                                data_csv='F:/DL-Data/eyes/glaucoma_OD_OC/REFUGE/refuge_eval.txt',
+                                data_root='F:/DL-Data/eyes/glaucoma_OD_OC/REFUGE/images',
+                                segmentation_root='F:/DL-Data/eyes/glaucoma_OD_OC/REFUGE/ground_truths',
+                                size=512,
+                                seg_object='od')
+    refuge_dl = torch.utils.data.DataLoader(refuge_dataset,batch_size=1)
+    dl_dict['refuge_dl']=refuge_dl
+
+    gamma_dataset = GAMMASegEval(
+                                data_csv='F:/DL-Data/eyes/glaucoma_OD_OC/GAMMA/gamma_all.txt',
+                                data_root='F:/DL-Data/eyes/glaucoma_OD_OC/GAMMA/images',
+                                segmentation_root='F:/DL-Data/eyes/glaucoma_OD_OC/GAMMA/ground_truths',
+                                size=512,
+                                seg_object='od')
+    gamma_dl = torch.utils.data.DataLoader(gamma_dataset,batch_size=1)
+    dl_dict['gamma_dl']=gamma_dl
+
+    model.to(device)
+    model.eval()
+    # threshold = 3
+    image_number = 30
+    for i in np.arange(4.1,4.7,0.1):
+        threshold = i
+        img_folder = './threshold_{}'.format(threshold)
+        if not os.path.exists(img_folder):
+            os.makedirs(img_folder)
+        for id,data in enumerate(refuge_dl):
+            input,y,original_image = data['image'].to(device),data['label'].to(device),data['original_image'].to(device)
+            od_oc_mask,oc_mask = data['od_oc_mask'].to(device),data['oc_mask'].to(device)
+
+            logits = model(input)['out'].detach()
+            logits_softmaxed = nn.functional.softmax(logits, dim=1)
+            prob,preds = torch.max(logits, dim=1)
+            prob_softmax,preds_softmax = torch.max(logits_softmaxed, dim=1)
+            prob = preds * prob
+            ##
+            prob_array = prob.squeeze().detach().cpu().numpy()
+            prob_array[prob_array > threshold] = 10
+
+            fig,axes = plt.subplots(1,7,figsize=(16,9))
+            # 可视化original_image
+            axes[0].imshow(original_image.squeeze().permute(1,2,0).cpu().numpy())
+            axes[0].axis('off')  # 去除坐标轴
+            axes[0].set_title('original_image')
+
+            # 可视化y
+            axes[1].imshow(y.squeeze().cpu().numpy())
+            axes[1].axis('off')  # 去除坐标轴
+            axes[1].set_title('Ground Truth')
+
+            # 可视化preds
+            axes[2].imshow(preds.squeeze().cpu().numpy())
+            axes[2].axis('off')  # 去除坐标轴
+            axes[2].set_title('Predictions')
+
+            # 可视化prob
+            axes[3].imshow(prob.squeeze().cpu().numpy())
+            axes[3].axis('off')  # 去除坐标轴
+            axes[3].set_title('prob')
+
+            # 可视化
+            overlay = oc_mask.squeeze().cpu().numpy() + prob.squeeze().cpu().numpy()
+            axes[4].imshow(overlay)
+            axes[4].axis('off')  # 去除坐标轴
+            axes[4].set_title('oc_mask over prob')
+
+            # 可视化threshold
+            axes[5].imshow(prob_array)
+            axes[5].axis('off')  # 去除坐标轴
+            axes[5].set_title('threshold')
+
+            # 可视化od_oc_mask
+            axes[6].imshow(od_oc_mask.squeeze().cpu().numpy())
+            axes[6].axis('off')  # 去除坐标轴
+            axes[6].set_title('od_oc_mask')
+
+            plt.tight_layout()  # 调整子图布局
+            # plt.show()
+            plt.savefig('{}/概率对比图{}.jpg'.format(img_folder,id),dpi=500)
+            if id > image_number:
+                break
+        # visual(data['original_image'],y,preds,logits,od_oc_mask)
+
+
+    #
+    # log_path = '../refer/logs/{}.txt'.format(os.path.basename(config_path).split('.')[0])
+    # for name,dl in dl_dict.items():
+    #     metrics = testing(dl, model, num_classes)
+    #     with open(log_path,'a') as file:
+    #         file.write(config_path + '\n')
+    #         file.write(config.model.params.ckpt_path + '\n')
+    #         file.write(name + ':\n')
+    #         for key,value in metrics.items():
+    #             file.write(f"{key}:{value}\n")
+    #         file.write("\n")
