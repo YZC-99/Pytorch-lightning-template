@@ -2,6 +2,6 @@
 /data
 /ckpt
 *.pyc
-
+**/__pycache__/
 push.sh
 .ipynb_checkpoints
